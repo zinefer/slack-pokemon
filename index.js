@@ -1,6 +1,5 @@
 var express = require('express'),
     bodyParser = require('body-parser'),
-    //Communicate with the PokeAPI
     pokeapi = require('./poke-api.js'),
     //Generate messages for different situations
     battleText = require('./battle-text.js'),
@@ -23,7 +22,7 @@ app.get('/', function(request, response) {
 * {
 *   "text": "pkmn battle me",
 *   "user": "rvinluan",
-*   "channel": "#pkmn_battles" 
+*   "channel": "#pkmn_battles"
 * }
 * There's more stuff but that's all we care about.
 * All error handling is bubbled up to this function and handled here.
@@ -33,7 +32,7 @@ app.post('/commands', function(request, response){
   var commands = request.body.text.toLowerCase().split(" ");
 
   if(matchCommands(commands, "CHOOSE")) {
-    battleText.userChoosePokemon(commands)
+    battleText.userChoosePokemon(request.body)
     .then(
       function(chosenObject){
         response.send(buildResponse(chosenObject.text + '\n' + chosenObject.spriteUrl));
