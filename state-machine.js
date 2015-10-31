@@ -7,7 +7,7 @@ var redis,
 /* For using RedisToGo on Heroku. If you're not using RedisToGo or Heroku,
 * feel free to remove this part and just use
 * redis = require("redis").createClient();
-*/ 
+*/
 if(process.env.REDISTOGO_URL) {
   rtg   = require("url").parse(process.env.REDISTOGO_URL);
   redis = require("redis").createClient(rtg.port, rtg.hostname);
@@ -35,10 +35,10 @@ QRedis.smembers = Q.nbind(redis.smembers, redis);
 module.exports = {};
 
 module.exports.newBattle = function(playerName, channel) {
-  return QRedis.exists("currentBattle")
+  return QRedis.exists(playerName)
     .then(function(exists){
       if(!exists) {
-        return QRedis.hmset("currentBattle", {
+        return QRedis.hmset(playerName, {
           "playerName": playerName,
           "channel": channel
         })
@@ -52,9 +52,10 @@ module.exports.getBattle = function() {
   return QRedis.hgetall("currentBattle");
 }
 
-module.exports.endBattle = function() {
+module.exports.endBattle = function(playerName) {
+  debugger
   return QRedis.del([
-    "currentBattle",
+    playerName,
     "user:allowedMoves",
     "npc:allowedMoves",
     "npc:hp",

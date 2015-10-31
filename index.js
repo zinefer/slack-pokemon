@@ -77,7 +77,7 @@ app.post('/commands', function(request, response){
     )
   }
   else if(matchCommands(commands, "END")) {
-    battleText.endBattle()
+    battleText.endBattle(request.body)
     .then(
       function(){
         response.send(buildResponse("Battle Over."))

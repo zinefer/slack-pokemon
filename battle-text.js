@@ -129,6 +129,7 @@ module.exports.npcChoosePokemon = function(dex_no) {
 }
 
 /*
+<<<<<<< HEAD
  * When the user uses a move, calculate the results of the user's turn,
  * then the NPC's turn. If either one of them ends the battle, don't show
  * the other result.
@@ -159,11 +160,8 @@ module.exports.unrecognizedCommand = function(commandsArray) {
   return Q.fcall(function(){ return textString; });
 }
 
-/*
- * Ends the battle
- */
-module.exports.endBattle = function() {
-  return stateMachine.endBattle();
+module.exports.endBattle = function(slackData) {
+  return stateMachine.endBattle(slackData.user_name);
 }
 
 
