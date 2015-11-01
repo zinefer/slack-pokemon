@@ -15,7 +15,7 @@ module.exports.startBattle = function(slackData) {
   var dex_no = Math.ceil(Math.random() * 151);
 
   var chooseNpcPokemon = function() {
-    return module.exports.npcChoosePokemon(dex_no);
+    return module.exports.npcChoosePokemon(slackData.user_name, dex_no);
   },
 
   createNpcAnnouncement = function(pkmnChoice){
@@ -49,16 +49,24 @@ module.exports.userChoosePokemon = function(slackData) {
   }
 
   return pokeapi.getPokemon(pokemonName).then(function(pkmndata){
-    initRandomMoveSet(pkmndata.moves, moves, movePromises, textString, 'player');
-
-    var setUserHP = function(){
-      return stateMachine.setUserHP(pkmndata.hp);
+    var choosePokemon = function() {
+      return stateMachine.choosePokemon(slackData.user_name, slackData.user_name, pokemonName);
     },
 
-    setUserPkmnTypes = function(){
-      return stateMachine.setUserPkmnTypes(pkmndata.types.map(function(val){
+    initMoveSet = function() {
+      initRandomMoveSet(pkmndata.moves, moves, movePromises, textString, slackData.user_name, slackData.user_name, pokemonName);
+    },
+
+    setActivePokemonHP = function(){
+      return stateMachine.setActivePokemonHP(slackData.user_name, slackData.user_name, pkmndata.hp);
+    },
+
+    setPokemonTypes = function(){
+      var typesArray = pkmndata.types.map(function(val){
         return val.name;
-      }));
+      });
+
+      return stateMachine.setPokemonTypes(typesArray, slackData.user_name, slackData.user_name, pokemonName);
     },
 
     setTextString = function(){
@@ -77,8 +85,10 @@ module.exports.userChoosePokemon = function(slackData) {
     };
 
     return Q.allSettled(movePromises)
-    .then( setUserHP )
-    .then( setUserPkmnTypes )
+    .then( choosePokemon )
+    .then( initMoveSet )
+    .then( setActivePokemonHP )
+    .then( setPokemonTypes )
     .then( setTextString );
   });
 }
@@ -88,25 +98,33 @@ module.exports.userChoosePokemon = function(slackData) {
  * Fetch the pokemon from the API, choose 4 random moves, write them to REDIS,
  * and then return a message stating the pokemon.
  */
-module.exports.npcChoosePokemon = function(dex_no) {
+module.exports.npcChoosePokemon = function(playerName, dex_no) {
   var textString = "I Choose {pkmnn}!";
   var moves = [];
   var movePromises = [];
 
   return pokeapi.getPokemon(dex_no).then(function(pkmnData){
-    initRandomMoveSet(pkmnData.moves, moves, movePromises, textString, 'npc');
-
-    var setNpcHP = function(){
-      return stateMachine.setNpcHP(pkmnData.hp);
+    var choosePokemon = function() {
+      return stateMachine.choosePokemon(playerName, 'npc', pkmnData.name);
     },
 
-    setNpcPkmn = function(){
-      return stateMachine.setNpcPkmnTypes(pkmnData.types.map(function(val){
+    setActivePokemonHP = function(){
+      return stateMachine.setActivePokemonHP(playerName, 'npc', pkmnData.hp);
+    },
+
+    initMoveSet = function() {
+      initRandomMoveSet(pkmnData.moves, moves, movePromises, textString, playerName, 'npc', pkmnData.name);
+    },
+
+    setPokemonTypes = function(){
+      var typesArray = pkmnData.types.map(function(val){
         return val.name;
-      }));
+      });
+
+      return stateMachine.setPokemonTypes(typesArray, playerName, 'npc', pkmnData.name);
     },
 
-    setNpcTextString = function(){
+    setTextString = function(){
       textString = textString.replace("{pkmnn}", pkmnData.name);
       var stringy = "" + pkmnData.pkdx_id;
       if (stringy.length == 1) {
@@ -121,9 +139,11 @@ module.exports.npcChoosePokemon = function(dex_no) {
     };
 
     return Q.allSettled(movePromises)
-    .then( setNpcHP )
-    .then( setNpcPkmn )
-    .then( setNpcTextString );
+    .then( choosePokemon )
+    .then( initMoveSet )
+    .then( setActivePokemonHP )
+    .then( setPokemonTypes )
+    .then( setTextString );
   });
 }
 
@@ -169,13 +189,14 @@ module.exports.endBattle = function(slackData) {
 //        Private Methods     //
 ////////////////////////////////
 
-function initRandomMoveSet(moveList, moves, movePromises, textString, trainer) {
+function initRandomMoveSet(moveList, moves, movePromises, textString, playerName, initPlayer, pokemonName) {
   moves = shuffle(moveList);
-  var stateCallback = (trainer === 'npc') ? stateMachine.addMoveNPC : stateMachine.addMove;
   for(var i = 0; i < 4; i++) {
     movePromises.push(
       pokeapi.getMove("http://pokeapi.co"+moves[i].resource_uri)
-      .then(stateCallback)
+      .then(function(data){
+        stateMachine.addMove(data, playerName, playerName, pokemonName);
+      })
     )
     //format: "vine whip, leer, solar beam, and tackle."
     if(i < 3) {
@@ -241,7 +262,7 @@ var useMoveNpc = function(playerName) {
 
   doDamage = function(multiplier){
     totalDamage = Math.ceil( (moveData.power / 5) * multiplier )
-    return stateMachine.doDamageToUser(totalDamage)
+    return stateMachine.doDamageToActivePokemon(playerName, playerName, totalDamage)
   },
 
   formOutcomeText = function(hpRemaining){
@@ -300,7 +321,7 @@ var useMoveUser = function(moveName, playerName) {
 
   doDamage = function(multiplier){
     totalDamage = Math.ceil( (moveData.power / 5) * multiplier )
-    return stateMachine.doDamageToNpc(totalDamage)
+    return stateMachine.doDamageToActivePokemon(playerName, 'npc', totalDamage)
   },
 
   formOutcomeText = function(hpRemaining){
@@ -318,7 +339,7 @@ var useMoveUser = function(moveName, playerName) {
     return textString + textStringDmg;
   }
 
-  return stateMachine.getUserAllowedMoves()
+  return stateMachine.getAllowedMoves()
   .then( getUserMove )
   .then( getNpcPkmnType )
   .then( getAttackMultiplier )
