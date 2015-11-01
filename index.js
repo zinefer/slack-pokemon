@@ -45,11 +45,12 @@ app.post('/commands', function(request, response){
   }
   else if(matchCommands(commands, "ATTACK")) {
     var moveName;
-    if(commands[3]) {
+    debugger;
+    if(commands[2]) {
       //for moves that are 2+ words, like 'Flare Blitz' or 'Will O Wisp'
-      moveName = commands.slice(2).join('-');
+      moveName = commands.slice(1).join('-');
     } else {
-      moveName = commands[2];
+      moveName = commands[1];
     }
     battleText.useMove(moveName.toLowerCase())
     .then(
