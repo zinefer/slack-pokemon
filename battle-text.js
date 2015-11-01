@@ -108,12 +108,12 @@ module.exports.npcChoosePokemon = function(playerName, dex_no) {
       return stateMachine.choosePokemon(playerName, 'npc', pkmnData.name);
     },
 
-    setActivePokemonHP = function(){
-      return stateMachine.setActivePokemonHP(playerName, 'npc', pkmnData.hp);
-    },
-
     initMoveSet = function() {
       initRandomMoveSet(pkmnData.moves, moves, movePromises, textString, playerName, 'npc', pkmnData.name);
+    },
+
+    setActivePokemonHP = function(){
+      return stateMachine.setActivePokemonHP(playerName, 'npc', pkmnData.hp);
     },
 
     setPokemonTypes = function(){
@@ -153,19 +153,37 @@ module.exports.npcChoosePokemon = function(playerName, dex_no) {
  * the other result.
  */
 module.exports.useMove = function(moveName, slackData) {
-  var printResults = function(results){
-    if(results[1] === "You Beat Me!") {
-      return results[1];
-    } else if (results[0] === "You Lost!") {
-      return results[0];
+  var results = [];
+  var doNpcMove = function() {
+    return useMoveNpc(slackData.user_name)
+  },
+
+  doUserMove = function() {
+    return useMoveUser(moveName, slackData.user_name)
+  },
+
+  saveResult = function(result) {
+    results.push(result)
+  },
+
+  printResults = function(){
+    if(~results.indexOf('You Beat Me!') && ~results.indexOf('You Lost!')) {
+      return 'It\'s a draw!';
+    } else if(~results.indexOf('You Beat Me!')) {
+      return 'You Beat Me!';
+    } else if(~results.indexOf('You Lost!')) {
+      return 'You Lost!';
     } else {
       return results[1] + "\n" + results[0];
     }
   };
 
   //TODO: Validate user
-
-  return Q.all([useMoveNpc(slackData.user_name), useMoveUser(moveName, slackData.user_name)])
+  //TODO: Choose who goes first based on speed
+  return doNpcMove()
+  .then( saveResult )
+  .then( doUserMove )
+  .then( saveResult )
   .then( printResults )
 }
 
@@ -189,13 +207,13 @@ module.exports.endBattle = function(slackData) {
 //        Private Methods     //
 ////////////////////////////////
 
-function initRandomMoveSet(moveList, moves, movePromises, textString, playerName, initPlayer, pokemonName) {
+function initRandomMoveSet(moveList, moves, movePromises, textString, playerName, initPlayerName, pokemonName) {
   moves = shuffle(moveList);
   for(var i = 0; i < 4; i++) {
     movePromises.push(
       pokeapi.getMove("http://pokeapi.co"+moves[i].resource_uri)
       .then(function(data){
-        stateMachine.addMove(data, playerName, playerName, pokemonName);
+        stateMachine.addMove(data, playerName, initPlayerName, pokemonName);
       })
     )
     //format: "vine whip, leer, solar beam, and tackle."
@@ -246,14 +264,18 @@ var useMoveNpc = function(playerName) {
   var multiplier;
   var totalDamage;
 
-  var getNpcUsageMove = function(moves){
+  var getMoves = function() {
+    return stateMachine.getActivePokemonAllowedMoves(playerName, 'npc');
+  },
+
+  getNpcUsageMove = function(moves){
     textString = textString.replace("{mvname}", moves[randMove]);
     return stateMachine.getSingleMove(moves[randMove]);
   },
 
   getUserPkmnType = function(_moveData){
     moveData = _moveData;
-    return stateMachine.getUserPkmnTypes()
+    return stateMachine.getActivePokemonTypes(playerName, playerName)
   },
 
   getAttackMultiplier = function(types){
@@ -280,7 +302,7 @@ var useMoveNpc = function(playerName) {
     return textString + textStringDmg;
   }
 
-  return stateMachine.getNpcAllowedMoves()
+  return getMoves()
   .then( getNpcUsageMove )
   .then( getUserPkmnType )
   .then( getAttackMultiplier )
@@ -301,7 +323,11 @@ var useMoveUser = function(moveName, playerName) {
   var multiplier;
   var totalDamage;
 
-  var getUserMove = function(moves){
+  var getMoves = function() {
+    return stateMachine.getActivePokemonAllowedMoves(playerName, playerName);
+  },
+
+  getUserMove = function(moves){
     if(moves.indexOf(moveName) !== -1) {
       return stateMachine.getSingleMove(moveName);
     } else {
@@ -312,7 +338,7 @@ var useMoveUser = function(moveName, playerName) {
   getNpcPkmnType = function(_moveData){
     textString = textString.replace("{mvname}", moveName);
     moveData = _moveData;
-    return stateMachine.getNpcPkmnTypes()
+    return stateMachine.getActivePokemonTypes(playerName, 'npc')
   },
 
   getAttackMultiplier = function(types){
@@ -339,7 +365,7 @@ var useMoveUser = function(moveName, playerName) {
     return textString + textStringDmg;
   }
 
-  return stateMachine.getAllowedMoves()
+  return getMoves()
   .then( getUserMove )
   .then( getNpcPkmnType )
   .then( getAttackMultiplier )

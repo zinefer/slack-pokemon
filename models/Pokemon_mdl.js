@@ -1,11 +1,11 @@
-var Pokemon = function(name, hp, availableMoves, types) {
+var Pokemon = function(name, hp, allowedMoves, types) {
   this.name = name || null;
   this.hp = hp || 0;
-  this.availableMoves = availableMoves || [];
+  this.allowedMoves = allowedMoves || [];
   this.types = types || [];
 
   this.addAllowedMove = function(move) {
-    return this.availableMoves.push(move);
+    return this.allowedMoves.push(move);
   };
 };
 
@@ -21,5 +21,5 @@ module.exports.fromName = function(pokemonName) {
 };
 
 module.exports.fromJSON = function(json) {
-  return new Pokemon(json.name, json.hp, json.availableMoves, json.types);
+  return new Pokemon(json.name, json.hp, json.allowedMoves, json.types);
 };

@@ -28,6 +28,7 @@ QRedis.set = Q.nbind(redis.set, redis);
 QRedis.get = Q.nbind(redis.get, redis);
 QRedis.del = Q.nbind(redis.del, redis);
 QRedis.hmset = Q.nbind(redis.hmset, redis);
+QRedis.hgetall = Q.nbind(redis.hgetall, redis);
 
 module.exports = {};
 
@@ -63,7 +64,7 @@ module.exports.choosePokemon = function(playerName, choosingPlayer, pokemonName)
     return saveGame(playerName, game);
   };
 
-  getGameObj( playerName )
+  return getGameObj( playerName )
   .then( choosePokemon );
 }
 
@@ -77,7 +78,7 @@ module.exports.addMove = function(data, playerName, addingPlayer, pokemonName) {
 
   cacheMove(moveName, data.power);
 
-  getGameObj( playerName )
+  return getGameObj( playerName )
   .then( allowMove );
 }
 
@@ -87,7 +88,7 @@ module.exports.setPokemonTypes = function(typesArray, playerName, settingPlayer,
     saveGame(playerName, game);
   };
 
-  getGameObj( playerName )
+  return getGameObj( playerName )
   .then( addTypes );
 }
 

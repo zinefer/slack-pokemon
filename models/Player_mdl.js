@@ -6,8 +6,8 @@ var Player = function(name, pokemon) {
 
   this.getPokemonByName = function(pokemonName) {
     for (var i = 0; i < this.pokemon.length; i++) {
-      if(this.pokemon.name == pokemonName) {
-        return this.pokemon;
+      if(this.pokemon[i].name == pokemonName) {
+        return this.pokemon[i];
       }
     }
     return null;
@@ -15,7 +15,7 @@ var Player = function(name, pokemon) {
 
   this.getPokemonIndexByName = function(pokemonName) {
     for (var i = 0; i < this.pokemon.length; i++) {
-      if(this.pokemon.name == pokemonName) {
+      if(this.pokemon[i].name == pokemonName) {
         return i;
       }
     }
@@ -28,7 +28,7 @@ var Player = function(name, pokemon) {
 
     if(index !== null){
       pokemon = this.getPokemonByName(pokemonName);
-      this.pokemon.split(index, 1);
+      this.pokemon.slice(index, 1);
     } else {
       pokemon = Pokemon.fromName(pokemonName);
     }
@@ -37,15 +37,23 @@ var Player = function(name, pokemon) {
   };
 
   this.setPokemonType = function(pokemonName, typeArray) {
-    return this.getPokemonByName(pokemonName).types = typesArray;
+    return this.getPokemonByName(pokemonName).types = typeArray;
   };
 
-  this.getAllowedMoves = function(pokemonName){
-    return this.getPokemonByName(pokemonName).availableMoves;
+  this.getActivePokemonAllowedMoves = function(){
+    if(this.pokemon.length > 0) {
+      return this.pokemon[0].allowedMoves;
+    }
+  };
+
+  this.getActivePokemonTypes = function(){
+    if(this.pokemon.length > 0) {
+      return this.pokemon[0].types;
+    }
   };
 
   this.addAllowedMove = function(pokemonName, move) {
-    return this.getPokemonByName(pokemonName).availableMoves.push(move);
+    return this.getPokemonByName(pokemonName).addAllowedMove(move);
   };
 
   this.setActivePokemonHP = function(hp) {
@@ -61,7 +69,9 @@ var Player = function(name, pokemon) {
   };
 
   this.damageActivePokemon = function(damage) {
-    return this.pokemon[0].hp -= damage;
+    if(this.pokemon.length > 0) {
+      return this.pokemon[0].hp -= damage;
+    }
   };
 };
 
@@ -77,5 +87,10 @@ module.exports.fromJSON = function(json) {
     return null;
   };
 
-  return new Player(json.name, Pokemon.fromJSON(json.pokemon));
+  var pokemonList = [];
+  json.pokemon.forEach(function (poke) {
+    pokemonList.push(Pokemon.fromJSON(poke));
+  });
+
+  return new Player(json.name, pokemonList);
 };
