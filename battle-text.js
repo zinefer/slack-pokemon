@@ -36,7 +36,6 @@ module.exports.startBattle = function(slackData) {
  * and then return a message stating the pokemon, its HP, and its moves.
  */
 module.exports.userChoosePokemon = function(slackData) {
-  debugger;
   var commandArray = slackData.text.toLowerCase().split(" ");
   var commandString = commandArray.join(" ");
   var pokemonName = commandArray[2];
@@ -129,12 +128,11 @@ module.exports.npcChoosePokemon = function(dex_no) {
 }
 
 /*
-<<<<<<< HEAD
  * When the user uses a move, calculate the results of the user's turn,
  * then the NPC's turn. If either one of them ends the battle, don't show
  * the other result.
  */
-module.exports.useMove = function(moveName) {
+module.exports.useMove = function(moveName, slackData) {
   var printResults = function(results){
     if(results[1] === "You Beat Me!") {
       return results[1];
@@ -145,7 +143,9 @@ module.exports.useMove = function(moveName) {
     }
   };
 
-  return Q.all([useMoveNpc(), useMoveUser(moveName)])
+  //TODO: Validate user
+
+  return Q.all([useMoveNpc(slackData.user_name), useMoveUser(moveName, slackData.user_name)])
   .then( printResults )
 }
 
@@ -217,7 +217,7 @@ var effectivenessMessage = function(mult) {
  * calculate the type effectiveness, calculate the damage,
  * and then return a message.
  */
-var useMoveNpc = function() {
+var useMoveNpc = function(playerName) {
   var textString = "I used {mvname}! {effctv}";
   var textStringDmg = "It did {dmg} damage, leaving you with {hp}HP!";
   var randMove = Math.floor(Math.random() * 4);
@@ -246,7 +246,7 @@ var useMoveNpc = function() {
 
   formOutcomeText = function(hpRemaining){
     if(parseInt(hpRemaining, 10) <= 0) {
-      return stateMachine.endBattle()
+      return stateMachine.endBattle(playerName)
       .then(function(){
         return "You Lost!";
       })
@@ -273,7 +273,7 @@ var useMoveNpc = function() {
  * calculate the type effectiveness, calculate the damage,
  * and then return a message.
  */
-var useMoveUser = function(moveName) {
+var useMoveUser = function(moveName, playerName) {
   var textString = "You used {mvname}! {effctv}";
   var textStringDmg = "It did {dmg} damage, leaving me with {hp}HP!";
   var moveData;
@@ -284,7 +284,7 @@ var useMoveUser = function(moveName) {
     if(moves.indexOf(moveName) !== -1) {
       return stateMachine.getSingleMove(moveName);
     } else {
-      throw new Error("Your pokemon doesn't know that move.");
+      throw new Error("Your pokemon doesn't know that move. Your Moves: " + moves.toString());
     }
   },
 
@@ -305,7 +305,7 @@ var useMoveUser = function(moveName) {
 
   formOutcomeText = function(hpRemaining){
     if(parseInt(hpRemaining, 10) <= 0) {
-      return stateMachine.endBattle()
+      return stateMachine.endBattle(playerName)
       .then(function(){
         return "You Beat Me!";
       })
