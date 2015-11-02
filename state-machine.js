@@ -1,4 +1,4 @@
-var moves = require('./move-types.js'),
+v movePromises,ar moves = require('./move-types.js'),
     Game = require('./models/Game_mdl.js'),
     Q = require('q');
 

@@ -51,7 +51,7 @@ app.post('/commands', function(request, response){
     } else {
       moveName = commands[1];
     }
-    battleText.useMove(moveName.toLowerCase(), request.body)
+    battleText.doTurn(moveName.toLowerCase(), request.body)
     .then(
       function(textString){
         response.end(buildResponse(textString));
@@ -63,7 +63,6 @@ app.post('/commands', function(request, response){
     )
   }
   else if(matchCommands(commands, "START")) {
-    //send in the whole request.body because it needs the Slack username and channel
     battleText.startBattle(request.body)
     .then(
       function(startObj){

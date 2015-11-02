@@ -36,8 +36,7 @@ module.exports.startBattle = function(slackData) {
  * and then return a message stating the pokemon, its HP, and its moves.
  */
 module.exports.choosePokemon = function(playerName, chooserName, pokemon) {
-  var textString = "You chose {pkmnn}. It has {hp} HP, and knows ";
-  var moves = [];
+  var textString = "{chooseMessage} {pkmnn}. It has {hp} HP, and knows {moves}";
   var movePromises = [];
 
   return pokeapi.getPokemon(pokemon).then(function(pkmndata){
@@ -45,13 +44,18 @@ module.exports.choosePokemon = function(playerName, chooserName, pokemon) {
       return stateMachine.choosePokemon(playerName, chooserName, pkmndata);
     },
 
-    initMoveSet = function() {
-      initRandomMoveSet(pkmndata.moves, moves, movePromises, textString, playerName, chooserName, pkmndata.name);
+    getMoveSet = function() {
+      return getRandomMoveSet(pkmndata.moves, movePromises, playerName, chooserName, pkmndata.name);
     },
 
-    setTextString = function(){
+    setTextString = function(moveString){
+      var displayName = (chooserName === 'npc') ? 'I choose' : chooserName + ' chooses';
+
+      textString = textString.replace("{chooseMessage}", displayName);
       textString = textString.replace("{pkmnn}", pkmndata.name);
       textString = textString.replace("{hp}", pkmndata.hp);
+      textString = textString.replace("{moves}", moveString);
+
       var stringy = "" + pkmndata.pkdx_id;
       if (stringy.length == 1) {
         stringy = "00" + stringy;
@@ -66,7 +70,7 @@ module.exports.choosePokemon = function(playerName, chooserName, pokemon) {
 
     return Q.allSettled(movePromises)
     .then( choosePokemon )
-    .then( initMoveSet )
+    .then( getMoveSet )
     .then( setTextString );
   });
 }
@@ -76,14 +80,14 @@ module.exports.choosePokemon = function(playerName, chooserName, pokemon) {
  * then the NPC's turn. If either one of them ends the battle, don't show
  * the other result.
  */
-module.exports.useMove = function(moveName, slackData) {
+module.exports.doTurn = function(moveName, slackData) {
   var results = [];
   var doNpcMove = function() {
-    return useMoveNpc(slackData.user_name)
+    return useMove(null, slackData.user_name, 'npc', true)
   },
 
   doUserMove = function() {
-    return useMoveUser(moveName, slackData.user_name)
+    return useMove(moveName, slackData.user_name, slackData.user_name, false)
   },
 
   saveResult = function(result) {
@@ -102,7 +106,6 @@ module.exports.useMove = function(moveName, slackData) {
     }
   };
 
-  //TODO: Validate user
   //TODO: Choose who goes first based on speed
   return doNpcMove()
   .then( saveResult )
@@ -131,8 +134,10 @@ module.exports.endBattle = function(slackData) {
 //        Private Methods     //
 ////////////////////////////////
 
-function initRandomMoveSet(moveList, moves, movePromises, textString, playerName, initPlayerName, pokemonName) {
-  moves = shuffle(moveList);
+function getRandomMoveSet(moveList, movePromises, playerName, initPlayerName, pokemonName) {
+  var textString = '';
+  var moves = shuffle(moveList);
+
   for(var i = 0; i < 4; i++) {
     movePromises.push(
       pokeapi.getMove("http://pokeapi.co"+moves[i].resource_uri)
@@ -150,6 +155,8 @@ function initRandomMoveSet(moveList, moves, movePromises, textString, playerName
       textString += ".";
     }
   }
+
+  return textString;
 }
 
 var effectivenessMessage = function(mult) {
@@ -175,94 +182,34 @@ var effectivenessMessage = function(mult) {
 }
 
 /*
- * Helper function for using one of the NPC's pokemon's move.
- * First check to see if the move is among the allowed moves,
- * calculate the type effectiveness, calculate the damage,
- * and then return a message.
  */
-var useMoveNpc = function(playerName) {
-  var textString = "I used {mvname}! {effctv}";
-  var textStringDmg = "It did {dmg} damage, leaving you with {hp}HP!";
-  var randMove = Math.floor(Math.random() * 4);
+var useMove = function(moveName, playerName, trainerName, otherName, isOpponentMove) {
+  var textString = "{txtPrep1} used {mvname}! {effctv}";
+  var textStringDmg = "It did {dmg} damage, leaving {txtPrep2} with {hp}HP!";
   var moveData;
   var multiplier;
   var totalDamage;
 
   var getMoves = function() {
-    return stateMachine.getActivePokemonAllowedMoves(playerName, 'npc');
+    return stateMachine.getActivePokemonAllowedMoves(playerName, trainerName);
   },
 
-  getNpcUsageMove = function(moves){
-    textString = textString.replace("{mvname}", moves[randMove]);
-    return stateMachine.getSingleMove(moves[randMove]);
-  },
-
-  getUserPkmnType = function(_moveData){
-    moveData = _moveData;
-    return stateMachine.getActivePokemonTypes(playerName, playerName)
-  },
-
-  getAttackMultiplier = function(types){
-    return pokeapi.getAttackMultiplier(moveData.type, types[0], types[1])
-  },
-
-  doDamage = function(multiplier){
-    totalDamage = Math.ceil( (moveData.power / 5) * multiplier )
-    return stateMachine.doDamageToActivePokemon(playerName, playerName, totalDamage)
-  },
-
-  formOutcomeText = function(hpRemaining){
-    if(parseInt(hpRemaining, 10) <= 0) {
-      return stateMachine.endBattle(playerName)
-      .then(function(){
-        return "You Lost!";
-      })
-    }
-    textString = textString.replace("{effctv}", effectivenessMessage(multiplier));
-    textStringDmg = textStringDmg.replace("{dmg}", totalDamage);
-    textStringDmg = textStringDmg.replace("{hp}", hpRemaining);
-    if(multiplier == 0)
-      return textString;
-    return textString + textStringDmg;
-  }
-
-  return getMoves()
-  .then( getNpcUsageMove )
-  .then( getUserPkmnType )
-  .then( getAttackMultiplier )
-  .then( doDamage )
-  .then( formOutcomeText )
-}
-
-/*
- * Helper function for using one of the user's pokemon's move.
- * First check to see if the move is among the allowed moves,
- * calculate the type effectiveness, calculate the damage,
- * and then return a message.
- */
-var useMoveUser = function(moveName, playerName) {
-  var textString = "You used {mvname}! {effctv}";
-  var textStringDmg = "It did {dmg} damage, leaving me with {hp}HP!";
-  var moveData;
-  var multiplier;
-  var totalDamage;
-
-  var getMoves = function() {
-    return stateMachine.getActivePokemonAllowedMoves(playerName, playerName);
-  },
-
-  getUserMove = function(moves){
-    if(moves.indexOf(moveName) !== -1) {
+  getMove = function(moves){
+    if(moveName === null) {
+      var rand = Math.floor(Math.random() * 4);
+      textString = textString.replace("{mvname}", moves[rand]);
+      return stateMachine.getSingleMove(moves[rand]);
+    } else if(moves.indexOf(moveName) !== -1) {
+      textString = textString.replace("{mvname}", moveName);
       return stateMachine.getSingleMove(moveName);
     } else {
       throw new Error("Your pokemon doesn't know that move. Your Moves: " + moves.toString());
     }
   },
 
-  getNpcPkmnType = function(_moveData){
-    textString = textString.replace("{mvname}", moveName);
+  getPokemonType = function(_moveData){
     moveData = _moveData;
-    return stateMachine.getActivePokemonTypes(playerName, 'npc')
+    return stateMachine.getActivePokemonTypes(playerName, otherName)
   },
 
   getAttackMultiplier = function(types){
@@ -271,27 +218,34 @@ var useMoveUser = function(moveName, playerName) {
 
   doDamage = function(multiplier){
     totalDamage = Math.ceil( (moveData.power / 5) * multiplier )
-    return stateMachine.doDamageToActivePokemon(playerName, 'npc', totalDamage)
+    return stateMachine.doDamageToActivePokemon(playerName, otherName, totalDamage)
   },
 
   formOutcomeText = function(hpRemaining){
     if(parseInt(hpRemaining, 10) <= 0) {
       return stateMachine.endBattle(playerName)
       .then(function(){
-        return "You Beat Me!";
+        var outcomeMsg = (isOpponentMove) ? 'You Lost!' : 'You Beat Me!';
+        return outcomeMsg;
       })
     }
+    var txtPrep1 = (isOpponentMove) ? 'I' : 'You';
+    textString = textString.replace("{txtPrep1}", txtPrep1);
     textString = textString.replace("{effctv}", effectivenessMessage(multiplier));
+
+    var txtPrep2 = (isOpponentMove) ? 'you' : 'me';
+    textStringDmg = textStringDmg.replace("{txtPrep2}", txtPrep2);
     textStringDmg = textStringDmg.replace("{dmg}", totalDamage);
     textStringDmg = textStringDmg.replace("{hp}", hpRemaining);
+
     if(multiplier == 0)
       return textString;
     return textString + textStringDmg;
   }
 
   return getMoves()
-  .then( getUserMove )
-  .then( getNpcPkmnType )
+  .then( getMove )
+  .then( getPokemonType )
   .then( getAttackMultiplier )
   .then( doDamage )
   .then( formOutcomeText )
