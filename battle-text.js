@@ -107,6 +107,8 @@ module.exports.doTurn = function(moveName, slackData) {
   };
 
   //TODO: Choose who goes first based on speed
+  //TODO: Validate Move
+  //TODO: Move save game state into it's own function
   return doNpcMove()
   .then( saveResult )
   .then( doUserMove )
@@ -186,9 +188,6 @@ var effectivenessMessage = function(mult) {
 var useMove = function(moveName, playerName, trainerName, otherName, isOpponentMove) {
   var textString = "{txtPrep1} used {mvname}! {effctv}";
   var textStringDmg = "It did {dmg} damage, leaving {txtPrep2} with {hp}HP!";
-  var moveData;
-  var multiplier;
-  var totalDamage;
 
   var getMoves = function() {
     return stateMachine.getActivePokemonAllowedMoves(playerName, trainerName);
@@ -207,49 +206,93 @@ var useMove = function(moveName, playerName, trainerName, otherName, isOpponentM
     }
   },
 
-  getPokemonType = function(_moveData){
-    moveData = _moveData;
-    return stateMachine.getActivePokemonTypes(playerName, otherName)
+  _doDamage = function(moveData) {
+    return doDamage(moveData, playerName, trainerName, otherName);
   },
 
-  getAttackMultiplier = function(types){
-    return pokeapi.getAttackMultiplier(moveData.type, types[0], types[1])
-  },
-
-  doDamage = function(multiplier){
-    totalDamage = Math.ceil( (moveData.power / 5) * multiplier )
-    return stateMachine.doDamageToActivePokemon(playerName, otherName, totalDamage)
-  },
-
-  formOutcomeText = function(hpRemaining){
-    if(parseInt(hpRemaining, 10) <= 0) {
+  formOutcomeText = function(results){
+    if(parseInt(results.hpRemaining, 10) <= 0) {
       return stateMachine.endBattle(playerName)
       .then(function(){
         var outcomeMsg = (isOpponentMove) ? 'You Lost!' : 'You Beat Me!';
         return outcomeMsg;
       })
     }
+
     var txtPrep1 = (isOpponentMove) ? 'I' : 'You';
     textString = textString.replace("{txtPrep1}", txtPrep1);
-    textString = textString.replace("{effctv}", effectivenessMessage(multiplier));
+    textString = textString.replace("{effctv}", effectivenessMessage(results.multiplier));
 
     var txtPrep2 = (isOpponentMove) ? 'you' : 'me';
     textStringDmg = textStringDmg.replace("{txtPrep2}", txtPrep2);
-    textStringDmg = textStringDmg.replace("{dmg}", totalDamage);
-    textStringDmg = textStringDmg.replace("{hp}", hpRemaining);
+    textStringDmg = textStringDmg.replace("{dmg}", results.damage);
+    textStringDmg = textStringDmg.replace("{hp}", results.hpRemaining);
 
-    if(multiplier == 0)
+    if(results.multiplier == 0)
       return textString;
     return textString + textStringDmg;
   }
 
   return getMoves()
   .then( getMove )
-  .then( getPokemonType )
-  .then( getAttackMultiplier )
-  .then( doDamage )
+  .then( _doDamage )
   .then( formOutcomeText )
 }
+
+var doDamage = function(moveData, playerName, trainerName, otherName) {
+  var multiplier;
+  var damage;
+  var attackingPokemon;
+  var defendingPokemon;
+
+  var getPokemonType = function() {
+    return stateMachine.getActivePokemonTypes(playerName, otherName)
+  },
+
+  getTypeMultiplier = function(types) {
+    return pokeapi.getAttackMultiplier(moveData.type, types[0], types[1])
+    .then( function(_multiplier) { multiplier = _multiplier; } )
+  },
+
+  getAttackingPokemon = function() {
+    return stateMachine.getActivePokemon(playerName, trainerName)
+    .then( function(_atkPokemon) { attackingPokemon = _atkPokemon; } )
+  },
+
+  getDefendingPokemon = function() {
+    return stateMachine.getActivePokemon(playerName, otherName)
+    .then( function(_defPokemon) { defendingPokemon = _defPokemon; } )
+  },
+
+  calcDamage = function() {
+    var damage;
+    damage = Math.ceil( (moveData.power / 5) * multiplier )
+
+    return damage;
+  };
+
+  _doDamage = function(_damage){
+    damage = _damage;
+    return stateMachine.doDamageToActivePokemon(playerName, otherName, damage)
+  },
+
+  reportResults = function(hpRemaining) {
+    var results = {};
+    results.hpRemaining = hpRemaining;
+    results.damage = damage;
+    results.multiplier = multiplier;
+    return results;
+  };
+
+  return getPokemonType()
+  .then( getTypeMultiplier )
+  .then( getAttackingPokemon )
+  .then( getDefendingPokemon )
+  .then( calcDamage )
+  .then( _doDamage )
+  .then( reportResults )
+}
+
 
 //+ Jonas Raoni Soares Silva
 //@ http://jsfromhell.com/array/shuffle [v1.0]

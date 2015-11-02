@@ -36,8 +36,14 @@ var Player = function(name, pokemon) {
     this.pokemon.unshift(pokemon);
   };
 
-  this.setPokemonType = function(pokemonName, typeArray) {
-    return this.getPokemonByName(pokemonName).types = typeArray;
+  this.addAllowedMove = function(pokemonName, move) {
+    return this.getPokemonByName(pokemonName).addAllowedMove(move);
+  };
+
+  this.getActivePokemon = function() {
+    if(this.pokemon.length > 0) {
+      return this.pokemon[0];
+    }
   };
 
   this.getActivePokemonAllowedMoves = function(){
@@ -49,22 +55,6 @@ var Player = function(name, pokemon) {
   this.getActivePokemonTypes = function(){
     if(this.pokemon.length > 0) {
       return this.pokemon[0].types;
-    }
-  };
-
-  this.addAllowedMove = function(pokemonName, move) {
-    return this.getPokemonByName(pokemonName).addAllowedMove(move);
-  };
-
-  this.setActivePokemonHP = function(hp) {
-    if(this.pokemon.length > 0) {
-      this.pokemon[0].hp = hp;
-    }
-  };
-
-  this.getActivePokemonHP = function(hp) {
-    if(this.pokemon.length > 0) {
-      return this.pokemon[0].hp;
     }
   };
 

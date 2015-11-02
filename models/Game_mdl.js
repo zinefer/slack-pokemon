@@ -36,9 +36,9 @@ var Game = function(gameId, player1, player2, channel) {
     this.getPlayerByName(playerName).addAllowedMove(pokemonName, move);
   };
 
-  this.setPokemonType = function(playerName, pokemonName, typeArray) {
-    this.getPlayerByName(playerName).setPokemonType(pokemonName, typeArray);
-  };
+  this.getActivePokemon = function(playerName) {
+    return this.getPlayerByName(playerName).getActivePokemon();
+  }
 
   this.getActivePokemonTypes = function(playerName) {
     return this.getPlayerByName(playerName).getActivePokemonTypes();
@@ -46,14 +46,6 @@ var Game = function(gameId, player1, player2, channel) {
 
   this.getActivePokemonAllowedMoves = function(playerName){
     return this.getPlayerByName(playerName).getActivePokemonAllowedMoves();
-  };
-
-  this.setActivePokemonHP = function(playerName, hp) {
-    this.getPlayerByName(playerName).setActivePokemonHP(hp);
-  };
-
-  this.getActivePokemonHP = function(playerName, hp) {
-    return this.getPlayerByName(playerName).getActivePokemonHP(hp);
   };
 
   this.damageActivePokemon = function(playerName, damage) {

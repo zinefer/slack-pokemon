@@ -68,11 +68,11 @@ module.exports.choosePokemon = function(playerName, choosingPlayer, pokemonData)
   .then( choosePokemon );
 }
 
-module.exports.addMove = function(data, playerName, addingPlayer, pokemonName) {
+module.exports.addMove = function(data, playerName, trainerName, pokemonName) {
   var moveName = data.name.toLowerCase();
 
   var allowMove = function(game) {
-    game.addAllowedMove( addingPlayer, pokemonName, moveName );
+    game.addAllowedMove( trainerName, pokemonName, moveName );
     return saveGame(playerName, game);
   };
 
@@ -82,52 +82,31 @@ module.exports.addMove = function(data, playerName, addingPlayer, pokemonName) {
   .then( allowMove );
 }
 
-module.exports.setPokemonTypes = function(typesArray, playerName, settingPlayer, pokemonName) {
-  var addTypes = function(game) {
-    game.setPokemonType( settingPlayer, pokemonName, typesArray );
-    saveGame(playerName, game);
+module.exports.getActivePokemon = function(playerName, trainerName) {
+  var getActivePokemon = function(game) {
+    return game.getActivePokemon( trainerName );
   };
 
   return getGameObj( playerName )
-  .then( addTypes );
+  .then( getActivePokemon );
 }
 
-module.exports.getActivePokemonTypes = function(playerName, gettingPlayer) {
+module.exports.getActivePokemonTypes = function(playerName, trainerName) {
   var getActivePokemonTypes = function(game) {
-    return game.getActivePokemonTypes( gettingPlayer );
+    return game.getActivePokemonTypes( trainerName );
   };
 
   return getGameObj( playerName )
   .then( getActivePokemonTypes );
 }
 
-module.exports.getActivePokemonAllowedMoves = function(playerName, gettingPlayer) {
+module.exports.getActivePokemonAllowedMoves = function(playerName, trainerName) {
   var getActivePokemonAllowedMoves = function(game) {
-    return game.getActivePokemonAllowedMoves( gettingPlayer );
+    return game.getActivePokemonAllowedMoves( trainerName );
   };
 
   return getGameObj( playerName )
   .then( getActivePokemonAllowedMoves );
-}
-
-module.exports.setActivePokemonHP = function(playerName, settingPlayer, hp) {
-  var setActivePokemonHP = function(game) {
-    hp = game.setActivePokemonHP( settingPlayer, hp );
-    saveGame(playerName, game);
-    return hp;
-  };
-
-  return getGameObj( playerName )
-  .then( setActivePokemonHP );
-}
-
-module.exports.getActivePokemonHP = function(playerName, gettingPlayer) {
-  var getActivePokemonHP = function(game) {
-    return game.getActivePokemonHP( gettingPlayer );
-  };
-
-  return getGameObj( playerName )
-  .then( getActivePokemonHP );
 }
 
 module.exports.doDamageToActivePokemon = function(playerName, attackedPlayer, damage) {
@@ -174,6 +153,7 @@ function cacheMove(name, data){
     "accuracy": data.accuracy,
     "pp": data.pp,
     "description": data.description,
-    "type": moves.getMoveType(name)
+    "type": moves.getMoveType(name),
+    "damageType": moves.getDamageType(name)
   });
 }
