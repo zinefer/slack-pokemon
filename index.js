@@ -32,7 +32,7 @@ app.post('/commands', function(request, response){
   var commands = request.body.text.toLowerCase().split(" ");
 
   if(matchCommands(commands, "CHOOSE")) {
-    battleText.choosePokemon(request.body.user_name, request.body.user_name, commands[2])
+    battleText.choosePokemon(request.body.user_name, request.body.user_name, commands[3])
     .then(
       function(chosenObject){
         response.send(buildResponse(chosenObject.text + '\n' + chosenObject.spriteUrl));
@@ -49,7 +49,7 @@ app.post('/commands', function(request, response){
       //for moves that are 2+ words, like 'Flare Blitz' or 'Will O Wisp'
       moveName = commands.slice(1).join('-');
     } else {
-      moveName = commands[1];
+      moveName = commands[2];
     }
     battleText.doTurn(moveName.toLowerCase(), request.body)
     .then(
