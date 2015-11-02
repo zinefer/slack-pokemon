@@ -21,14 +21,16 @@ pjs.addSuite({
           var moveName = $(elem).find("td:first-child a").text().toLowerCase();
           var moveType = $(elem).find("td:nth-child(3) img").attr('title');
 
-          var type = 'None';
-          if(~moveType.indexOf('Special')){
-            type = 'Special';
-          } else if (~moveType.indexOf('Physical')) {
-            type = 'Physical';
-          }
+          // console.log(moveType)
 
-          ro[moveName] = type;
+          // var type = 'None';
+          // if(~moveType.indexOf('Special')){
+            // type = 'Special';
+          // } else if (~moveType.indexOf('Physical')) {
+            // type = 'Physical';
+          // }
+
+          ro[moveName] = moveType;
           return ro;
         }).toArray();
     }

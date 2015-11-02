@@ -1,6 +1,6 @@
 var pokeapi = require('./poke-api.js');
 var stateMachine = require('./state-machine.js');
-var moves = require('./move-types.js');
+var moves = require('./file-system.js');
 var Q = require('q');
 
 module.exports = {}
@@ -186,7 +186,7 @@ var effectivenessMessage = function(mult) {
 /*
  */
 var useMove = function(moveName, playerName, trainerName, otherName, isOpponentMove) {
-  var textString = "{txtPrep1} used {mvname}! {effctv}";
+  var textString = "{txtPrep1} used {mvname}! {crit} {effctv}";
   var textStringDmg = "It did {dmg} damage, leaving {txtPrep2} with {hp}HP!";
 
   var getMoves = function() {
@@ -196,9 +196,10 @@ var useMove = function(moveName, playerName, trainerName, otherName, isOpponentM
   getMove = function(moves){
     if(moveName === null) {
       var rand = Math.floor(Math.random() * 4);
-      textString = textString.replace("{mvname}", moves[rand]);
-      return stateMachine.getSingleMove(moves[rand]);
-    } else if(moves.indexOf(moveName) !== -1) {
+      moveName = moves[rand];
+    }
+
+    if(moves.indexOf(moveName) !== -1) {
       textString = textString.replace("{mvname}", moveName);
       return stateMachine.getSingleMove(moveName);
     } else {
@@ -207,6 +208,7 @@ var useMove = function(moveName, playerName, trainerName, otherName, isOpponentM
   },
 
   _doDamage = function(moveData) {
+    moveData.name = moveName;
     return doDamage(moveData, playerName, trainerName, otherName);
   },
 
@@ -220,8 +222,10 @@ var useMove = function(moveName, playerName, trainerName, otherName, isOpponentM
     }
 
     var txtPrep1 = (isOpponentMove) ? 'I' : 'You';
+    var criticalMsg = (results.wasCritical) ? 'Critical Strike!' : '';
     textString = textString.replace("{txtPrep1}", txtPrep1);
     textString = textString.replace("{effctv}", effectivenessMessage(results.multiplier));
+    textString = textString.replace("{crit}", criticalMsg);
 
     var txtPrep2 = (isOpponentMove) ? 'you' : 'me';
     textStringDmg = textStringDmg.replace("{txtPrep2}", txtPrep2);
@@ -244,6 +248,8 @@ var doDamage = function(moveData, playerName, trainerName, otherName) {
   var damage;
   var attackingPokemon;
   var defendingPokemon;
+  var wasCritical = false;
+  var damageType;
 
   var getPokemonType = function() {
     return stateMachine.getActivePokemonTypes(playerName, otherName)
@@ -264,11 +270,52 @@ var doDamage = function(moveData, playerName, trainerName, otherName) {
     .then( function(_defPokemon) { defendingPokemon = _defPokemon; } )
   },
 
-  calcDamage = function() {
-    var damage;
-    damage = Math.ceil( (moveData.power / 5) * multiplier )
+  checkCritical = function() {
+    //TODO: Some moves will have a different critical strike rate. This is the base.
+    wasCritical = (Math.floor(Math.random() * 16) === 1);
+  },
 
-    return damage;
+  getDamageType = function() {
+    var type = moves.getDamageType( moveData.name );
+    if( ~type.indexOf('Special') ) {
+      damageType = 'Special';
+    } else if( ~type.indexOf('Physical') ) {
+      damageType = 'Physical';
+    } else {
+      damageType = 'Effect';
+    }
+  },
+
+  calcDamage = function() {
+    if( moveData.power == 0 ) {
+      return 0;
+    }
+
+    var stab = 1;
+    attackingPokemon.types.forEach(function( type ) {
+      if( type.name == moveData.type ) {
+        stab = 1.5;
+      }
+    });
+
+    var critical = (wasCritical) ? 1.5 : 1;
+    var random = 1 - (Math.floor(Math.random() * 15) / 100);
+    var modifier = stab * critical * multiplier * random;
+
+    //TODO: Use special if the attack is special instead of physical
+    //TODO: Hardcoded level of 5
+    var level = 5;
+    var levelModifier = ( ( 2 * level + 10 ) / 250 );
+
+    var attackDefenseRatio;
+    if( damageType == 'Physical' ) {
+      attackDefenseRatio = (attackingPokemon.attack / defendingPokemon.defense);
+    } else {
+      attackDefenseRatio = (attackingPokemon.sp_attack / defendingPokemon.sp_defense);
+    }
+
+    var damage = ( levelModifier * attackDefenseRatio * moveData.power + 2) * modifier;
+    return Math.floor(damage);
   };
 
   _doDamage = function(_damage){
@@ -281,6 +328,7 @@ var doDamage = function(moveData, playerName, trainerName, otherName) {
     results.hpRemaining = hpRemaining;
     results.damage = damage;
     results.multiplier = multiplier;
+    results.wasCritical = wasCritical;
     return results;
   };
 
@@ -288,6 +336,8 @@ var doDamage = function(moveData, playerName, trainerName, otherName) {
   .then( getTypeMultiplier )
   .then( getAttackingPokemon )
   .then( getDefendingPokemon )
+  .then( checkCritical )
+  .then( getDamageType )
   .then( calcDamage )
   .then( _doDamage )
   .then( reportResults )

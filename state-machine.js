@@ -1,16 +1,14 @@
-var moves = require('./move-types.js'),
+var moves = require('./file-system.js'),
     Game = require('./models/Game_mdl.js'),
     Q = require('q');
-
-var redis,
-    rtg;
 
 /* For using RedisToGo on Heroku. If you're not using RedisToGo or Heroku,
 * feel free to remove this part and just use
 * redis = require("redis").createClient();
 */
+var redis;
 if(process.env.REDISTOGO_URL) {
-  rtg   = require("url").parse(process.env.REDISTOGO_URL);
+  var rtg   = require("url").parse(process.env.REDISTOGO_URL);
   redis = require("redis").createClient(rtg.port, rtg.hostname);
 
   redis.auth(rtg.auth.split(":")[1]);
@@ -20,9 +18,7 @@ if(process.env.REDISTOGO_URL) {
 }
 
 /* Turn Redis Methods Into Promise-returning Ones */
-
 QRedis = {};
-
 QRedis.exists = Q.nbind(redis.exists, redis);
 QRedis.set = Q.nbind(redis.set, redis);
 QRedis.get = Q.nbind(redis.get, redis);
@@ -120,7 +116,6 @@ module.exports.doDamageToActivePokemon = function(playerName, attackedPlayer, da
   .then( doDamage );
 }
 
-//TODO: Fix how this works
 module.exports.getSingleMove = function(moveName) {
   return QRedis.hgetall("move:"+moveName.toLowerCase());
 }
@@ -153,7 +148,6 @@ function cacheMove(name, data){
     "accuracy": data.accuracy,
     "pp": data.pp,
     "description": data.description,
-    "type": moves.getMoveType(name),
-    "damageType": moves.getDamageType(name)
+    "type": moves.getMoveType(name)
   });
 }
