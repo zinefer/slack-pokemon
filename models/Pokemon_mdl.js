@@ -1,8 +1,14 @@
-var Pokemon = function(name, hp, allowedMoves, types) {
+var Pokemon = function(name, allowedMoves, types, hp, attack, defense, sp_attack, sp_defense, speed) {
   this.name = name || null;
   this.hp = hp || 0;
   this.allowedMoves = allowedMoves || [];
   this.types = types || [];
+
+  this.attack = attack || null;
+  this.defense = defense || null;
+  this.sp_attack = sp_attack || null;
+  this.sp_defense = sp_defense || null;
+  this.speed = speed || null;
 
   this.addAllowedMove = function(move) {
     return this.allowedMoves.push(move);
@@ -16,10 +22,30 @@ module.exports.blank = function() {
   return new Pokemon();
 };
 
-module.exports.fromName = function(pokemonName) {
-  return new Pokemon(pokemonName);
+module.exports.fromPokeData = function(pokemonData) {
+  return new Pokemon(
+    pokemonData.name,
+    [],
+    pokemonData.types,
+    pokemonData.hp,
+    pokemonData.attack,
+    pokemonData.defense,
+    pokemonData.sp_atk,
+    pokemonData.sp_def,
+    pokemonData.speed
+  );
 };
 
 module.exports.fromJSON = function(json) {
-  return new Pokemon(json.name, json.hp, json.allowedMoves, json.types);
+  return new Pokemon(
+    json.name,
+    json.allowedMoves,
+    json.types,
+    json.hp,
+    json.attack,
+    json.defense,
+    json.sp_attack,
+    json.sp_defense,
+    json.speed
+  );
 };

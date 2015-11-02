@@ -28,8 +28,8 @@ var Game = function(gameId, player1, player2, channel) {
     }
   };
 
-  this.choosePokemon = function(playerName, pokemonName) {
-    this.getPlayerByName(playerName).choosePokemon(pokemonName);
+  this.choosePokemon = function(playerName, pokemonData) {
+    this.getPlayerByName(playerName).choosePokemon(pokemonData);
   };
 
   this.addAllowedMove = function(playerName, pokemonName, move) {
