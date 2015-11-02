@@ -15,7 +15,7 @@ module.exports.startBattle = function(slackData) {
   var dex_no = Math.ceil(Math.random() * 151);
 
   var chooseNpcPokemon = function() {
-    return module.exports.npcChoosePokemon(slackData.user_name, dex_no);
+    return module.exports.choosePokemon(slackData.user_name, 'npc', dex_no);
   },
 
   createNpcAnnouncement = function(pkmnChoice){
@@ -35,38 +35,18 @@ module.exports.startBattle = function(slackData) {
  * Fetch the pokemon from the API, choose 4 random moves, write them to REDIS,
  * and then return a message stating the pokemon, its HP, and its moves.
  */
-module.exports.userChoosePokemon = function(slackData) {
-  var commandArray = slackData.text.toLowerCase().split(" ");
-  var commandString = commandArray.join(" ");
-  var pokemonName = commandArray[2];
+module.exports.choosePokemon = function(playerName, chooserName, pokemon) {
   var textString = "You chose {pkmnn}. It has {hp} HP, and knows ";
   var moves = [];
   var movePromises = [];
 
-  //validate that the command was "pkmn i choose {pokemon}"
-  if(!commandString.match(/i choose/i)) {
-    return module.exports.unrecognizedCommand(commandsArray);
-  }
-
-  return pokeapi.getPokemon(pokemonName).then(function(pkmndata){
+  return pokeapi.getPokemon(pokemon).then(function(pkmndata){
     var choosePokemon = function() {
-      return stateMachine.choosePokemon(slackData.user_name, slackData.user_name, pokemonName);
+      return stateMachine.choosePokemon(playerName, chooserName, pkmndata);
     },
 
     initMoveSet = function() {
-      initRandomMoveSet(pkmndata.moves, moves, movePromises, textString, slackData.user_name, slackData.user_name, pokemonName);
-    },
-
-    setActivePokemonHP = function(){
-      return stateMachine.setActivePokemonHP(slackData.user_name, slackData.user_name, pkmndata.hp);
-    },
-
-    setPokemonTypes = function(){
-      var typesArray = pkmndata.types.map(function(val){
-        return val.name;
-      });
-
-      return stateMachine.setPokemonTypes(typesArray, slackData.user_name, slackData.user_name, pokemonName);
+      initRandomMoveSet(pkmndata.moves, moves, movePromises, textString, playerName, chooserName, pkmndata.name);
     },
 
     setTextString = function(){
@@ -87,62 +67,6 @@ module.exports.userChoosePokemon = function(slackData) {
     return Q.allSettled(movePromises)
     .then( choosePokemon )
     .then( initMoveSet )
-    .then( setActivePokemonHP )
-    .then( setPokemonTypes )
-    .then( setTextString );
-  });
-}
-
-/*
- * Return a text string when the NPC chooses a Pokemon.
- * Fetch the pokemon from the API, choose 4 random moves, write them to REDIS,
- * and then return a message stating the pokemon.
- */
-module.exports.npcChoosePokemon = function(playerName, dex_no) {
-  var textString = "I Choose {pkmnn}!";
-  var moves = [];
-  var movePromises = [];
-
-  return pokeapi.getPokemon(dex_no).then(function(pkmnData){
-    var choosePokemon = function() {
-      return stateMachine.choosePokemon(playerName, 'npc', pkmnData.name);
-    },
-
-    initMoveSet = function() {
-      initRandomMoveSet(pkmnData.moves, moves, movePromises, textString, playerName, 'npc', pkmnData.name);
-    },
-
-    setActivePokemonHP = function(){
-      return stateMachine.setActivePokemonHP(playerName, 'npc', pkmnData.hp);
-    },
-
-    setPokemonTypes = function(){
-      var typesArray = pkmnData.types.map(function(val){
-        return val.name;
-      });
-
-      return stateMachine.setPokemonTypes(typesArray, playerName, 'npc', pkmnData.name);
-    },
-
-    setTextString = function(){
-      textString = textString.replace("{pkmnn}", pkmnData.name);
-      var stringy = "" + pkmnData.pkdx_id;
-      if (stringy.length == 1) {
-        stringy = "00" + stringy;
-      } else if (stringy.length == 2) {
-        stringy = "0" + stringy;
-      }
-      return {
-        text: textString,
-        spriteUrl: "http://sprites.pokecheck.org/i/"+stringy+".gif"
-      }
-    };
-
-    return Q.allSettled(movePromises)
-    .then( choosePokemon )
-    .then( initMoveSet )
-    .then( setActivePokemonHP )
-    .then( setPokemonTypes )
     .then( setTextString );
   });
 }

@@ -58,9 +58,9 @@ module.exports.endBattle = function(playerName) {
   return QRedis.del( playerName )
 }
 
-module.exports.choosePokemon = function(playerName, choosingPlayer, pokemonName) {
+module.exports.choosePokemon = function(playerName, choosingPlayer, pokemonData) {
   var choosePokemon = function(game) {
-    game.choosePokemon(choosingPlayer, pokemonName);
+    game.choosePokemon(choosingPlayer, pokemonData);
     return saveGame(playerName, game);
   };
 
@@ -76,7 +76,7 @@ module.exports.addMove = function(data, playerName, addingPlayer, pokemonName) {
     return saveGame(playerName, game);
   };
 
-  cacheMove(moveName, data.power);
+  cacheMove(moveName, data);
 
   return getGameObj( playerName )
   .then( allowMove );
@@ -168,9 +168,12 @@ function saveGame(playerName, game) {
   return QRedis.set(playerName, JSON.stringify(game))
 };
 
-function cacheMove(name, power){
+function cacheMove(name, data){
   return QRedis.hmset("move:"+name,{
-    "power": power,
+    "power": data.power,
+    "accuracy": data.accuracy,
+    "pp": data.pp,
+    "description": data.description,
     "type": moves.getMoveType(name)
   });
 }

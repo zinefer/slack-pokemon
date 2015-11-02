@@ -22,15 +22,15 @@ var Player = function(name, pokemon) {
     return null;
   };
 
-  this.choosePokemon = function(pokemonName){
-    var index = this.getPokemonIndexByName(pokemonName);
+  this.choosePokemon = function(pokemonData){
+    var index = this.getPokemonIndexByName(pokemonData.name);
     var pokemon;
 
     if(index !== null){
-      pokemon = this.getPokemonByName(pokemonName);
+      pokemon = this.getPokemonByName(pokemonData.name);
       this.pokemon.slice(index, 1);
     } else {
-      pokemon = Pokemon.fromName(pokemonName);
+      pokemon = Pokemon.fromPokeData(pokemonData);
     }
 
     this.pokemon.unshift(pokemon);

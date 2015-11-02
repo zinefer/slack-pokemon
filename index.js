@@ -32,7 +32,7 @@ app.post('/commands', function(request, response){
   var commands = request.body.text.toLowerCase().split(" ");
 
   if(matchCommands(commands, "CHOOSE")) {
-    battleText.userChoosePokemon(request.body)
+    battleText.choosePokemon(request.body.user_name, request.body.user_name, commands[2])
     .then(
       function(chosenObject){
         response.send(buildResponse(chosenObject.text + '\n' + chosenObject.spriteUrl));
