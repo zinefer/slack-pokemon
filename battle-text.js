@@ -83,11 +83,11 @@ module.exports.choosePokemon = function(playerName, chooserName, pokemon) {
 module.exports.doTurn = function(moveName, slackData) {
   var results = [];
   var doNpcMove = function() {
-    return useMove(null, slackData.user_name, 'npc', true)
+    return useMove(null, slackData.user_name, 'npc', slackData.user_name, true)
   },
 
   doUserMove = function() {
-    return useMove(moveName, slackData.user_name, slackData.user_name, false)
+    return useMove(moveName, slackData.user_name, slackData.user_name, 'npc', false)
   },
 
   saveResult = function(result) {
