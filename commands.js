@@ -49,7 +49,7 @@ module.exports = exports = (function () {
 
     // Set up the available commands
     cmds
-      .addCommand(new Command('CHOOSE', '"pkmn i choose <pokemon_name>" - chooses a pokemon by name', 
+      .addCommand(new Command('CHOOSE', '`pkmn i choose <pokemon_name>` - chooses a pokemon by name', 
         /pkmn i choose ([\w-]+)/, function (match, req, res) {
         battleText.choosePokemon(req.body.user_name, req.body.user_name, match[1])
         .then(
@@ -62,7 +62,7 @@ module.exports = exports = (function () {
           }
         )
       }))
-      .addCommand(new Command('ATTACK', '"pkmn use <ability>" - uses the specified ability', 
+      .addCommand(new Command('ATTACK', '`pkmn use <ability>` - uses the specified ability', 
         /pkmn use ([\w-]+)/, function (match, req, res) {
             var moveName = match[1];
             
@@ -77,7 +77,7 @@ module.exports = exports = (function () {
               }
             )
       }))
-      .addCommand(new Command('START', '"pkmn battle me" - starts a new battle',
+      .addCommand(new Command('START', '`pkmn battle me` - starts a new battle',
        /pkmn battle (me)/, function (match, req, res) {
         battleText.startBattle(req.body)
         .then(
@@ -90,7 +90,7 @@ module.exports = exports = (function () {
           }
         )
       }))
-      .addCommand(new Command('END', '"pkmn end battle" - stops the current battle', 
+      .addCommand(new Command('END', '`pkmn end battle` - stops the current battle', 
         /pkmn end battle/, function (match, req, res) {
         battleText.endBattle(req.body)
         .then(
@@ -103,11 +103,11 @@ module.exports = exports = (function () {
           }
         )
       }))
-      .addCommand(new Command('HELP', '"pkmn help" - shows the available commands', 
+      .addCommand(new Command('HELP', '`pkmn help` - shows the available commands', 
         /pkmn (help)/, function (match, req, res) {
             var text = 'Available Commands:\n' +
             _commands.map(function (c) {
-                return c.helpText;
+                return c.helpText ? '* ' + c.helpText : null;
             }).filter(function (t) {
                 return t !== null;
             }).join('\n');
