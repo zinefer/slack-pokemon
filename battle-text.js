@@ -120,11 +120,10 @@ module.exports.doTurn = function(moveName, slackData) {
 /*
  * Return a text string when the command doesn't match defined commands.
  */
-module.exports.unrecognizedCommand = function(commandsArray) {
+module.exports.unrecognizedCommand = function(cmd) {
   var textString = "I don't recognize the command _{cmd}_ .";
-  //get rid of the 'pkmn'
-  commandsArray.shift();
-  textString = textString.replace("{cmd}", commandsArray.join(" "));
+  
+  textString = textString.replace("{cmd}", cmd);
   return Q.fcall(function(){ return textString; });
 }
 
