@@ -51,7 +51,7 @@ module.exports = exports = (function () {
     cmds
       .addCommand(new Command('CHOOSE', '"pkmn i choose <pokemon_name>" - chooses a pokemon by name', 
         /pkmn i choose ([\w-]+)/, function (match, req, res) {
-        battleText.choosePokemon(req.body.user_name, req.body.user_name, match(1))
+        battleText.choosePokemon(req.body.user_name, req.body.user_name, match[1])
         .then(
           function(chosenObject){
             res.send(buildResponse(chosenObject.text + '\n' + chosenObject.spriteUrl));
@@ -64,7 +64,7 @@ module.exports = exports = (function () {
       }))
       .addCommand(new Command('ATTACK', '"pkmn use <ability>" - uses the specified ability', 
         /pkmn use ([\w-]+)/, function (match, req, res) {
-            var moveName = match(1);
+            var moveName = match[1];
             
             battleText.doTurn(moveName.toLowerCase(), req.body)
             .then(
@@ -117,7 +117,7 @@ module.exports = exports = (function () {
       ))
       .addCommand(new Command('DEFAULT', null, 
         /pkmn (.*)/, function (match, req, res) {
-        battleText.unrecognizedCommand(match(1))
+        battleText.unrecognizedCommand(match[1])
         .then(function(text){
           res.send(buildResponse(text));
         });
