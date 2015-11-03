@@ -95,12 +95,12 @@ module.exports.doTurn = function(moveName, slackData) {
   },
 
   printResults = function(){
-    var dmgText = results[1] + "\n" + results[0];
-    if(~results.indexOf('You Beat Me!') && ~results.indexOf('You Lost!')) {
+    var dmgText = results[1].text + "\n" + results[0].text;
+    if(results[0].winner && results[1].winner) {
       return dmgText + '\nIt\'s a draw!';
-    } else if(~results.indexOf('You Beat Me!')) {
+    } else if(results[0].winner === 'player' || results[1].winner === 'player') {
       return dmgText + '\nYou Beat Me!';
-    } else if(~results.indexOf('You Lost!')) {
+    } else if(results[0].winner === 'trainer' || results[1].winner === 'trainer') {
       return dmgText + '\nYou Lost!';
     } else {
       return dmgText;
@@ -214,13 +214,7 @@ var useMove = function(moveName, playerName, trainerName, otherName, isOpponentM
   },
 
   formOutcomeText = function(results){
-    if(parseInt(results.hpRemaining, 10) <= 0) {
-      return stateMachine.endBattle(playerName)
-      .then(function(){
-        var outcomeMsg = (isOpponentMove) ? 'You Lost!' : 'You Beat Me!';
-        return outcomeMsg;
-      })
-    }
+    var battleText;
 
     var txtPrep1 = (isOpponentMove) ? 'I' : 'You';
     var criticalMsg = (results.wasCritical) ? 'Critical Strike!' : '';
@@ -233,9 +227,22 @@ var useMove = function(moveName, playerName, trainerName, otherName, isOpponentM
     textStringDmg = textStringDmg.replace("{dmg}", results.damage);
     textStringDmg = textStringDmg.replace("{hp}", results.hpRemaining);
 
-    if(results.multiplier == 0)
-      return textString;
-    return textString + textStringDmg;
+
+    if(results.multiplier == 0) {
+      battleText = textString;
+    } else {
+      battleText = textString + textStringDmg;
+    }
+
+    if(parseInt(results.hpRemaining, 10) <= 0) {
+      return stateMachine.endBattle(playerName)
+      .then(function(){
+        var outcomeMsg = (isOpponentMove) ? 'You Lost!' : 'You Beat Me!';
+        return {text: battleText + '\n' + outcomeMsg, winner: isOpponentMove ? 'trainer' : 'player' };
+      })
+    } else {
+      return { text: battleText };
+    }
   }
 
   return getMoves()
