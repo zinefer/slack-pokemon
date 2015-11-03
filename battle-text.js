@@ -95,14 +95,15 @@ module.exports.doTurn = function(moveName, slackData) {
   },
 
   printResults = function(){
+    var dmgText = results[1] + "\n" + results[0];
     if(~results.indexOf('You Beat Me!') && ~results.indexOf('You Lost!')) {
-      return 'It\'s a draw!';
+      return dmgText + '\nIt\'s a draw!';
     } else if(~results.indexOf('You Beat Me!')) {
-      return 'You Beat Me!';
+      return dmgText + '\nYou Beat Me!';
     } else if(~results.indexOf('You Lost!')) {
-      return 'You Lost!';
+      return dmgText + '\nYou Lost!';
     } else {
-      return results[1] + "\n" + results[0];
+      return dmgText;
     }
   };
 
