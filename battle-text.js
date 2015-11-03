@@ -237,8 +237,7 @@ var useMove = function(moveName, playerName, trainerName, otherName, isOpponentM
     if(parseInt(results.hpRemaining, 10) <= 0) {
       return stateMachine.endBattle(playerName)
       .then(function(){
-        var outcomeMsg = (isOpponentMove) ? 'You Lost!' : 'You Beat Me!';
-        return {text: battleText + '\n' + outcomeMsg, winner: isOpponentMove ? 'trainer' : 'player' };
+        return {text: battleText, winner: isOpponentMove ? 'trainer' : 'player' };
       })
     } else {
       return { text: battleText };
