@@ -18,7 +18,7 @@ function _validateRequest (req, res, next) {
   if (req.body.token === TOKEN) {
     next();
   } else {
-    res.status(401).send("Unauthorized: " + JSON.stringify(req.body) + '|token"' + TOKEN);
+    res.status(401).send("Unauthorized");
   }
 }
 
