@@ -1,11 +1,9 @@
 var express = require('express'),
     bodyParser = require('body-parser'),
-    pokeapi = require('./poke-api.js'),
-    //Generate messages for different situations
-    battleText = require('./battle-text.js'),
-    //Communicate with Redis
-    stateMachine = require('./state-machine.js'),
-    app = express();
+    // Handle user commands
+    commands = require('./commands'),
+    app = express(),
+    TOKEN = process.env.TOKEN;
 
 app.set('port', (process.env.PORT || 5000));
 app.use(express.static(__dirname + '/public'));
@@ -15,6 +13,14 @@ app.use(bodyParser.urlencoded({extended: true}));
 app.get('/', function(request, response) {
   response.send('Hello There!')
 });
+
+function _validateRequest (req, res, next) {
+  if (req.body.token === TOKEN) {
+    next();
+  } else {
+    res.status(401).send("Unauthorized");
+  }
+}
 
 /*
 * This is the main function that recieves post commands from Slack.
@@ -28,104 +34,12 @@ app.get('/', function(request, response) {
 * All error handling is bubbled up to this function and handled here.
 * It doesn't distinguish between different types of errors, but it probably should.
 */
-app.post('/commands', function(request, response){
-  var commands = request.body.text.toLowerCase().split(" ");
-
-  if(matchCommands(commands, "CHOOSE")) {
-    battleText.choosePokemon(request.body.user_name, request.body.user_name, commands[2])
-    .then(
-      function(chosenObject){
-        response.send(buildResponse(chosenObject.text + '\n' + chosenObject.spriteUrl));
-      },
-      function(err){
-        console.log(err);
-        response.send(buildResponse("I don't think that's a real Pokemon. "+err));
-      }
-    )
-  }
-  else if(matchCommands(commands, "ATTACK")) {
-    var moveName;
-    if(commands[2]) {
-      //for moves that are 2+ words, like 'Flare Blitz' or 'Will O Wisp'
-      moveName = commands.slice(1).join('-');
-    } else {
-      moveName = commands[1];
-    }
-    battleText.doTurn(moveName.toLowerCase(), request.body)
-    .then(
-      function(textString){
-        response.end(buildResponse(textString));
-      },
-      function(err){
-        console.log(err);
-        response.send(buildResponse("You can't use that move. "+err))
-      }
-    )
-  }
-  else if(matchCommands(commands, "START")) {
-    battleText.startBattle(request.body)
-    .then(
-      function(startObj){
-        response.send(buildResponse(startObj.text + "\n" + startObj.spriteUrl))
-      },
-      function(err) {
-        console.log(err);
-        response.send(buildResponse("Something went wrong. "+err));
-      }
-    )
-  }
-  else if(matchCommands(commands, "END")) {
-    battleText.endBattle(request.body)
-    .then(
-      function(){
-        response.send(buildResponse("Battle Over."))
-      },
-      function(err){
-        console.log(err);
-        response.send(buildResponse("Couldn't end the battle. "+err))
-      }
-    )
-  }
-  else {
-    battleText.unrecognizedCommand(commands)
-    .then(function(text){
-      response.send(buildResponse(text));
-    });
-  }
+app.post('/commands', _validateRequest, function(request, response){
+  var cmd = request.body.text.toLowerCase();
+  commands.runMatchingCommand(cmd, request, response);
 })
 
 app.listen(app.get('port'), function() {
   console.log("Node app is running at localhost:" + app.get('port'))
 })
 
-//utility functions
-
-/*
-* Helper function to build the JSON to send back to Slack.
-* Make sure to make a custom emoji in your Slack integration named :pkmntrainer:
-* with the included pkmntrainer jpeg, otherwise the profile picture won't work.
-*/
-function buildResponse(text) {
-  var json = {
-    "text": text,
-    "username": "Pokemon Trainer",
-    "icon_emoji": ":pkmntrainer:"
-  }
-  return JSON.stringify(json);
-}
-
-/*
-* Helper function to match commands, instead of a switch statement,
-* because then you can do stuff like use Regex here or something fancier.
-* Also keeps all the possible commands and their trigger words in one place.
-*/
-function matchCommands(commandArray, command) {
-  var commandsDict = {
-    "CHOOSE": "i choose",
-    "ATTACK": "use",
-    "START": "battle me",
-    "END": "end battle"
-  }
-  var cmdString = commandArray.join(" ").toLowerCase().replace("pkmn ", "");
-  return cmdString.indexOf(commandsDict[command]) === 0;
-}

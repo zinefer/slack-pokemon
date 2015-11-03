@@ -9,7 +9,7 @@ module.exports.getPokemon = function(name) {
     if (response.statusCode == 200) {
       deferred.resolve(JSON.parse(body));
     } else {
-      deferred.reject(new Error("Error Getting Pokemon"));
+      deferred.reject(new Error("Error Getting Pokemon: " + name));
     }
   })
   return deferred.promise;
