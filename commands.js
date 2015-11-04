@@ -1,5 +1,6 @@
 //Generate messages for different situations
-var battleText = require('./battle-text.js');
+var battleText = require('./battle-text.js')
+    stateMachine = require('./state-machine.js');
 
 
 module.exports = exports = (function () {
@@ -60,7 +61,7 @@ module.exports = exports = (function () {
             console.log(err);
             res.send(buildResponse("I don't think that's a real Pokemon. "+err));
           }
-        )
+        ).done();
       }))
       .addCommand(new Command('ATTACK', '`pkmn use <ability>` - uses the specified ability',
         /pkmn use ([\w-]+)/, function (match, req, res) {
@@ -103,6 +104,21 @@ module.exports = exports = (function () {
           }
         )
       }))
+      .addCommand(new Command('MOVE-STAT', '`pkmn stat <move>` - shows the stats for a move your pokemon knows',
+        /pkmn stat ([\w-]+)/, function (match, req, res) {
+           stateMachine.getActivePokemonAllowedMoves(req.body.user_name, req.body.user_name)
+           .then(function (moves) {
+              if (moves.indexOf(match[1]) === -1) {
+                res.send(buildResponse('Your pokemon doesn\'t know that move.'));
+              } else {
+                stateMachine.getSingleMove(match[1]).then(function (m) {
+                  res.send(buildResponse(JSON.stringify(m)));
+                });
+                
+              }
+           });
+        }
+      ))
       .addCommand(new Command('HELP', '`pkmn help` - shows the available commands',
         /pkmn (help)/, function (match, req, res) {
             var text = 'Available Commands:\n' +
