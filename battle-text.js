@@ -205,7 +205,7 @@ var effectivenessMessage = function(mult) {
  */
 var useMove = function(moveName, playerName, trainerName, otherName, isOpponentMove) {
   var textString = ">{txtPrep1} used `{mvname}`! {crit} {effctv}";
-  var textStringDmg = "It did `{dmg}` damage, leaving {txtPrep2} with {hp}HP!";
+  var textStringDmg = "It did `{dmg}` damage, leaving {txtPrep2} with `{hp}`HP!";
 
   var getMoves = function() {
     return stateMachine.getActivePokemonAllowedMoves(playerName, trainerName);
