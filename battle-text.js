@@ -94,6 +94,12 @@ module.exports.doTurn = function(moveName, slackData) {
     results.push(result)
   },
 
+  processBattle = function () {
+    if (results[0].winner || results[1].winner) {
+      return stateMachine.endBattle(slackData.user_name)
+    }
+  }
+
   printResults = function(){
     var dmgText = results[1].text + "\n" + results[0].text;
     if(results[0].winner && results[1].winner) {
@@ -114,6 +120,7 @@ module.exports.doTurn = function(moveName, slackData) {
   .then( saveResult )
   .then( doUserMove )
   .then( saveResult )
+  .then( processBattle )
   .then( printResults )
 }
 
@@ -194,8 +201,12 @@ var useMove = function(moveName, playerName, trainerName, otherName, isOpponentM
   },
 
   getMove = function(moves){
+    if (moves == null || moves.length <= 0) {
+      throw new Error("No moves available; investigate why in code.");
+    }
+
     if(moveName === null) {
-      var rand = Math.floor(Math.random() * 4);
+      var rand = Math.min(Math.floor(Math.random() * 4), moves.length - 1);
       moveName = moves[rand];
     }
 
@@ -234,12 +245,9 @@ var useMove = function(moveName, playerName, trainerName, otherName, isOpponentM
     }
 
     if(parseInt(results.hpRemaining, 10) <= 0) {
-      return stateMachine.endBattle(playerName)
-      .then(function(){
         return {text: battleText, winner: isOpponentMove ? 'trainer' : 'player' };
-      })
     } else {
-      return { text: battleText };
+        return { text: battleText };
     }
   }
 
