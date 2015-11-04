@@ -36,6 +36,20 @@ var Player = function(name, pokemon) {
     this.pokemon.unshift(pokemon);
   };
 
+  this.chooseNextPokemon = function() {
+    for( var i = 0; i < this.pokemon.length; i++ ) {
+      if( this.pokemon[i].hp > 0 ) {
+        var temp = this.pokemon[0];
+        this.pokemon[0] = this.pokemon[i];
+        this.pokemon[i] = temp;
+
+        return this.pokemon[0];
+      }
+    }
+
+    return null;
+  };
+
   this.addAllowedMove = function(pokemonName, move) {
     return this.getPokemonByName(pokemonName).addAllowedMove(move);
   };

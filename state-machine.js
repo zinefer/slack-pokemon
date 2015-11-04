@@ -64,6 +64,18 @@ module.exports.choosePokemon = function(playerName, trainerName, pokemonData) {
   .then( choosePokemon );
 }
 
+module.exports.chooseNextPokemon = function(playerName, trainerName) {
+  var nextPokemon;
+  var chooseNextPokemon = function(game) {
+     nextPokemon = game.chooseNextPokemon(trainerName)
+     return saveGame(playerName, game);
+  };
+
+  return getGameObj( playerName )
+  .then( chooseNextPokemon )
+  .then(function() { return nextPokemon; })
+}
+
 module.exports.addMove = function(data, playerName, trainerName, pokemonName) {
   var moveName = data.name.toLowerCase();
 

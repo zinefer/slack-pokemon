@@ -51,15 +51,17 @@ module.exports.startBattle = function(slackData) {
  */
 module.exports.choosePokemon = function(playerName, trainerName, pokemon) {
   var addAllPokemon = function(pokemon) {
-    for(var i = 1; i < pokemon.length; i++) {
-      addPokemon(playerName, trainerName, pokemon[i]);
+    var addPromises = [];
+    for(var i = pokemon.length - 1; i > 0; i--) {
+      addPromises.push(addPokemon(playerName, trainerName, pokemon[i]));
     }
 
     var addActivePokemon = function() {
       return addPokemon(playerName, trainerName, pokemon[0]);
     }
 
-    return addActivePokemon()
+    return Q.all( addPromises )
+    .then( addActivePokemon )
   },
 
   setTextString = function(pkmndata){
@@ -71,15 +73,11 @@ module.exports.choosePokemon = function(playerName, trainerName, pokemon) {
     textString = textString.replace("{hp}", pkmndata.hp);
     textString = textString.replace("{moves}", pkmndata.moveString);
 
-    var stringy = "" + pkmndata.pkdx_id;
-    if (stringy.length == 1) {
-      stringy = "00" + stringy;
-    } else if (stringy.length == 2) {
-      stringy = "0" + stringy;
-    }
+    var spriteUrl = getSpriteUrl(pkmndata.pkdx_id);
+
     return {
       text: textString,
-      spriteUrl: "http://sprites.pokecheck.org/i/"+stringy+".gif"
+      spriteUrl: spriteUrl
     }
   };
 
@@ -104,22 +102,38 @@ module.exports.doTurn = function(moveName, slackData) {
 
   saveResult = function(result) {
     results.push(result)
+    return result;
   },
 
-  processBattle = function () {
-    if (results[0].winner || results[1].winner) {
+  checkForFaint = function(result) {
+    if (result.fainted) {
+      return stateMachine.chooseNextPokemon(slackData.user_name, result.fainted.trainerName)
+      .then(function(nextPoke) {
+        if(nextPoke){
+          result.text += '\n' + result.fainted.pokeName + ' fainted! \n';
+          result.text += 'I choose '+ nextPoke.name +'! \n';
+          result.text += getSpriteUrl(nextPoke.dex_no);
+        } else {
+          result.loser = result.fainted.trainerName;
+        }
+      });
+    }
+  },
+
+  checkForVictor = function () {
+    if (results[0].loser || results[1].loser) {
       return stateMachine.endBattle(slackData.user_name)
     }
   }
 
   printResults = function(){
-    var dmgText = results[1].text + "\n" + results[0].text;
-    if(results[0].winner && results[1].winner) {
+    var dmgText = results[0].text + "\n" + results[1].text;
+    if(results[0].loser && results[1].loser) {
       return dmgText + '\nIt\'s a draw!';
-    } else if(results[0].winner === 'player' || results[1].winner === 'player') {
-      return dmgText + '\nYou Beat Me!';
-    } else if(results[0].winner === 'trainer' || results[1].winner === 'trainer') {
+    } else if(results[0].loser === slackData.user_name || results[1].loser === slackData.user_name) {
       return dmgText + '\nYou Lost!';
+    } else if(results[0].loser === 'npc' || results[1].loser === 'npc') {
+      return dmgText + '\nYou Beat Me!';
     } else {
       return dmgText;
     }
@@ -130,9 +144,11 @@ module.exports.doTurn = function(moveName, slackData) {
   //TODO: Move save game state into it's own function
   return doNpcMove()
   .then( saveResult )
+  .then( checkForFaint )
   .then( doUserMove )
   .then( saveResult )
-  .then( processBattle )
+  .then( checkForFaint )
+  .then( checkForVictor )
   .then( printResults )
 }
 
@@ -195,8 +211,6 @@ var addPokemon = function(playerName, trainerName, pokemon) {
       return pkmndata;
     });
   };
-
-  debugger;
 
   return getPokemonData(pokemon)
   .then( choosePokemon )
@@ -280,7 +294,11 @@ var useMove = function(moveName, playerName, trainerName, otherName, isOpponentM
     }
 
     if(parseInt(results.hpRemaining, 10) <= 0) {
-        return {text: battleText, winner: isOpponentMove ? 'trainer' : 'player' };
+        var fainted = {
+          trainerName: otherName,
+          pokeName: results.defendingPokemon.name
+        }
+        return {text: battleText, fainted: fainted };
     } else {
         return { text: battleText };
     }
@@ -374,6 +392,7 @@ var doDamage = function(moveData, playerName, trainerName, otherName) {
 
   reportResults = function(hpRemaining) {
     var results = {};
+    results.defendingPokemon = defendingPokemon;
     results.hpRemaining = hpRemaining;
     results.damage = damage;
     results.multiplier = multiplier;
@@ -391,6 +410,17 @@ var doDamage = function(moveData, playerName, trainerName, otherName) {
   .then( _doDamage )
   .then( reportResults )
 }
+
+function getSpriteUrl(dex_no) {
+  var stringy = "" + dex_no;
+  if (stringy.length == 1) {
+    stringy = "00" + stringy;
+  } else if (stringy.length == 2) {
+    stringy = "0" + stringy;
+  }
+
+  return "http://sprites.pokecheck.org/i/"+stringy+".gif";
+};
 
 
 //+ Jonas Raoni Soares Silva

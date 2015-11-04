@@ -32,6 +32,10 @@ var Game = function(gameId, player1, player2, channel) {
     this.getPlayerByName(playerName).choosePokemon(pokemonData);
   };
 
+  this.chooseNextPokemon = function(playerName) {
+    return this.getPlayerByName(playerName).chooseNextPokemon();
+  };
+
   this.addAllowedMove = function(playerName, pokemonName, move) {
     this.getPlayerByName(playerName).addAllowedMove(pokemonName, move);
   };

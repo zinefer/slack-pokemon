@@ -1,4 +1,5 @@
-var Pokemon = function(name, allowedMoves, types, hp, attack, defense, sp_attack, sp_defense, speed) {
+var Pokemon = function(dex_no, name, allowedMoves, types, hp, attack, defense, sp_attack, sp_defense, speed) {
+  this.dex_no = dex_no || 0;
   this.name = name || null;
   this.hp = hp || 0;
   this.allowedMoves = allowedMoves || [];
@@ -24,6 +25,7 @@ module.exports.blank = function() {
 
 module.exports.fromPokeData = function(pokemonData) {
   return new Pokemon(
+    pokemonData.national_id,
     pokemonData.name,
     [],
     pokemonData.types,
@@ -38,6 +40,7 @@ module.exports.fromPokeData = function(pokemonData) {
 
 module.exports.fromJSON = function(json) {
   return new Pokemon(
+    json.dex_no,
     json.name,
     json.allowedMoves,
     json.types,
