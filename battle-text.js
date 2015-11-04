@@ -143,29 +143,40 @@ module.exports.endBattle = function(slackData) {
 //        Private Methods     //
 ////////////////////////////////
 
+function _getMoveFromPokeApi(moveList, i, totalMoves, maxMoves, playerName, initPlayerName, pokemonName) {
+  if (i >= moveList.length) {
+    return totalMoves.join(', ') + '.';
+  }
+
+  return pokeapi.getMove("http://pokeapi.co" + moveList[i].resource_uri)
+    .then(function (data) {
+      var pchain = Q();
+
+      if (data.power == 0) {
+        //console.log('Filtered out move: ', data);
+        // Filter out moves that do no damage right now.
+        // TODO: add back in later when effects are calculated
+      } else {
+        //console.log('adding move: ', data.name, 'power: ', data.power);
+        pchain.then(stateMachine.addMove(data, playerName, initPlayerName, pokemonName));
+        totalMoves.push(moveList[i].name);
+      }
+
+      if (totalMoves.length < maxMoves) {
+        return pchain.then(function () {
+          return _getMoveFromPokeApi(moveList, i + 1, totalMoves, maxMoves, playerName, initPlayerName, pokemonName)
+        });
+      } else {
+        return pchain.then(function () { return totalMoves.join(', ') + '.'; });
+      }
+    });
+}
+
 function getRandomMoveSet(moveList, movePromises, playerName, initPlayerName, pokemonName) {
   var textString = '';
   var moves = shuffle(moveList);
 
-  for(var i = 0; i < 4; i++) {
-    movePromises.push(
-      pokeapi.getMove("http://pokeapi.co"+moves[i].resource_uri)
-      .then(function(data){
-        stateMachine.addMove(data, playerName, initPlayerName, pokemonName);
-      })
-    )
-    //format: "vine whip, leer, solar beam, and tackle."
-    if(i < 3) {
-      textString += moves[i].name;
-      textString += ", ";
-    } else {
-      textString += "and ";
-      textString += moves[i].name;
-      textString += ".";
-    }
-  }
-
-  return textString;
+  return _getMoveFromPokeApi(moves, 0, [], 5, playerName, initPlayerName, pokemonName);
 }
 
 var effectivenessMessage = function(mult) {
@@ -193,8 +204,8 @@ var effectivenessMessage = function(mult) {
 /*
  */
 var useMove = function(moveName, playerName, trainerName, otherName, isOpponentMove) {
-  var textString = "{txtPrep1} used {mvname}! {crit} {effctv}";
-  var textStringDmg = "It did {dmg} damage, leaving {txtPrep2} with {hp}HP!";
+  var textString = ">{txtPrep1} used `{mvname}`! {crit} {effctv}";
+  var textStringDmg = "It did `{dmg}` damage, leaving {txtPrep2} with {hp}HP!";
 
   var getMoves = function() {
     return stateMachine.getActivePokemonAllowedMoves(playerName, trainerName);
