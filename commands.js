@@ -51,7 +51,7 @@ module.exports = exports = (function () {
     cmds
       .addCommand(new Command('CHOOSE', '`pkmn i choose <pokemon_name>` - chooses a pokemon by name',
         /pkmn i choose ([\w-]+)/, function (match, req, res) {
-        battleText.choosePokemon(req.body.user_name, req.body.user_name, match[1])
+        battleText.choosePokemon(req.body.user_name, req.body.user_name, [match[1]])
         .then(
           function(chosenObject){
             res.send(buildResponse(chosenObject.text + '\n' + chosenObject.spriteUrl));

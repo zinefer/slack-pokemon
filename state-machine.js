@@ -54,9 +54,9 @@ module.exports.endBattle = function(playerName) {
   return QRedis.del( playerName )
 }
 
-module.exports.choosePokemon = function(playerName, choosingPlayer, pokemonData) {
+module.exports.choosePokemon = function(playerName, trainerName, pokemonData) {
   var choosePokemon = function(game) {
-    game.choosePokemon(choosingPlayer, pokemonData);
+    game.choosePokemon(trainerName, pokemonData);
     return saveGame(playerName, game);
   };
 

@@ -12,10 +12,23 @@ module.exports = {}
  */
 module.exports.startBattle = function(slackData) {
   var textString = "OK {name}, I'll battle you! ".replace("{name}", slackData.user_name);
-  var dex_no = Math.ceil(Math.random() * 151);
 
-  var chooseNpcPokemon = function() {
-    return module.exports.choosePokemon(slackData.user_name, 'npc', dex_no);
+  var getNpcDexNumbers = function() {
+    var dex_nos = [];
+    var morePokeOdds = .3;
+
+    do {
+      var dex = Math.ceil(Math.random() * 151);
+      dex_nos.push(dex);
+
+      morePokeOdds += Math.random();
+    } while(morePokeOdds < 1)
+
+    return dex_nos;
+  },
+
+  chooseNpcPokemon = function(dex_nos) {
+    return module.exports.choosePokemon(slackData.user_name, 'npc', dex_nos);
   },
 
   createNpcAnnouncement = function(pkmnChoice){
@@ -26,6 +39,7 @@ module.exports.startBattle = function(slackData) {
   };
 
   return stateMachine.newBattle(slackData.user_name, slackData.channel_name)
+  .then( getNpcDexNumbers )
   .then( chooseNpcPokemon )
   .then( createNpcAnnouncement )
 }
@@ -35,44 +49,42 @@ module.exports.startBattle = function(slackData) {
  * Fetch the pokemon from the API, choose 4 random moves, write them to REDIS,
  * and then return a message stating the pokemon, its HP, and its moves.
  */
-module.exports.choosePokemon = function(playerName, chooserName, pokemon) {
-  var textString = "{chooseMessage} {pkmnn}. It has {hp} HP, and knows {moves}";
-  var movePromises = [];
+module.exports.choosePokemon = function(playerName, trainerName, pokemon) {
+  var addAllPokemon = function(pokemon) {
+    for(var i = 1; i < pokemon.length; i++) {
+      addPokemon(playerName, trainerName, pokemon[i]);
+    }
 
-  return pokeapi.getPokemon(pokemon).then(function(pkmndata){
-    var choosePokemon = function() {
-      return stateMachine.choosePokemon(playerName, chooserName, pkmndata);
-    },
+    var addActivePokemon = function() {
+      return addPokemon(playerName, trainerName, pokemon[0]);
+    }
 
-    getMoveSet = function() {
-      return getRandomMoveSet(pkmndata.moves, movePromises, playerName, chooserName, pkmndata.name);
-    },
+    return addActivePokemon()
+  },
 
-    setTextString = function(moveString){
-      var displayName = (chooserName === 'npc') ? 'I choose' : chooserName + ' chooses';
+  setTextString = function(pkmndata){
+    var displayName = (trainerName === 'npc') ? 'I choose' : trainerName + ' chooses';
+    var textString = "{chooseMessage} {pkmnn}. It has {hp} HP, and knows {moves}";
 
-      textString = textString.replace("{chooseMessage}", displayName);
-      textString = textString.replace("{pkmnn}", pkmndata.name);
-      textString = textString.replace("{hp}", pkmndata.hp);
-      textString = textString.replace("{moves}", moveString);
+    textString = textString.replace("{chooseMessage}", displayName);
+    textString = textString.replace("{pkmnn}", pkmndata.name);
+    textString = textString.replace("{hp}", pkmndata.hp);
+    textString = textString.replace("{moves}", pkmndata.moveString);
 
-      var stringy = "" + pkmndata.pkdx_id;
-      if (stringy.length == 1) {
-        stringy = "00" + stringy;
-      } else if (stringy.length == 2) {
-        stringy = "0" + stringy;
-      }
-      return {
-        text: textString,
-        spriteUrl: "http://sprites.pokecheck.org/i/"+stringy+".gif"
-      }
-    };
+    var stringy = "" + pkmndata.pkdx_id;
+    if (stringy.length == 1) {
+      stringy = "00" + stringy;
+    } else if (stringy.length == 2) {
+      stringy = "0" + stringy;
+    }
+    return {
+      text: textString,
+      spriteUrl: "http://sprites.pokecheck.org/i/"+stringy+".gif"
+    }
+  };
 
-    return Q.allSettled(movePromises)
-    .then( choosePokemon )
-    .then( getMoveSet )
-    .then( setTextString );
-  });
+  return addAllPokemon( pokemon )
+  .then( setTextString );
 }
 
 /*
@@ -129,7 +141,6 @@ module.exports.doTurn = function(moveName, slackData) {
  */
 module.exports.unrecognizedCommand = function(cmd) {
   var textString = "I don't recognize the command _{cmd}_ .";
-  
   textString = textString.replace("{cmd}", cmd);
   return Q.fcall(function(){ return textString; });
 }
@@ -143,29 +154,53 @@ module.exports.endBattle = function(slackData) {
 //        Private Methods     //
 ////////////////////////////////
 
-function getRandomMoveSet(moveList, movePromises, playerName, initPlayerName, pokemonName) {
-  var textString = '';
-  var moves = shuffle(moveList);
+var addPokemon = function(playerName, trainerName, pokemon) {
+  var pkmndata;
 
-  for(var i = 0; i < 4; i++) {
-    movePromises.push(
-      pokeapi.getMove("http://pokeapi.co"+moves[i].resource_uri)
-      .then(function(data){
-        stateMachine.addMove(data, playerName, initPlayerName, pokemonName);
-      })
-    )
-    //format: "vine whip, leer, solar beam, and tackle."
-    if(i < 3) {
-      textString += moves[i].name;
-      textString += ", ";
-    } else {
-      textString += "and ";
-      textString += moves[i].name;
-      textString += ".";
+  var getPokemonData = function(poke) {
+    return pokeapi.getPokemon(poke)
+  },
+
+  choosePokemon = function(_pkmndata) {
+    pkmndata = _pkmndata;
+    return stateMachine.choosePokemon(playerName, trainerName, pkmndata);
+  },
+
+  getMoveSet = function() {
+    var moveString = '';
+    var movePromises = [];
+    var moves = shuffle(pkmndata.moves);
+
+    for(var i = 0; i < 4; i++) {
+      movePromises.push(
+        pokeapi.getMove("http://pokeapi.co"+moves[i].resource_uri)
+        .then(function(data){
+          stateMachine.addMove(data, playerName, trainerName, pkmndata.name);
+        })
+      )
+      //format: "vine whip, leer, solar beam, and tackle."
+      if(i < 3) {
+        moveString += moves[i].name;
+        moveString += ", ";
+      } else {
+        moveString += "and ";
+        moveString += moves[i].name;
+        moveString += ".";
+      }
     }
-  }
 
-  return textString;
+    pkmndata.moveString = moveString;
+    return Q.allSettled( movePromises )
+    .then( function() {
+      return pkmndata;
+    });
+  };
+
+  debugger;
+
+  return getPokemonData(pokemon)
+  .then( choosePokemon )
+  .then( getMoveSet )
 }
 
 var effectivenessMessage = function(mult) {
