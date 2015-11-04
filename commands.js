@@ -3,7 +3,7 @@ var battleText = require('./battle-text.js');
 
 
 module.exports = exports = (function () {
-    
+
     function Command (type, helpText, regex, action) {
         this.type = type;
         this.helpText = helpText;
@@ -49,7 +49,7 @@ module.exports = exports = (function () {
 
     // Set up the available commands
     cmds
-      .addCommand(new Command('CHOOSE', '`pkmn i choose <pokemon_name>` - chooses a pokemon by name', 
+      .addCommand(new Command('CHOOSE', '`pkmn i choose <pokemon_name>` - chooses a pokemon by name',
         /pkmn i choose ([\w-]+)/, function (match, req, res) {
         battleText.choosePokemon(req.body.user_name, req.body.user_name, match[1])
         .then(
@@ -62,10 +62,10 @@ module.exports = exports = (function () {
           }
         )
       }))
-      .addCommand(new Command('ATTACK', '`pkmn use <ability>` - uses the specified ability', 
+      .addCommand(new Command('ATTACK', '`pkmn use <ability>` - uses the specified ability',
         /pkmn use ([\w-]+)/, function (match, req, res) {
             var moveName = match[1];
-            
+
             battleText.doTurn(moveName.toLowerCase(), req.body)
             .then(
               function(textString){
@@ -78,7 +78,7 @@ module.exports = exports = (function () {
             )
       }))
       .addCommand(new Command('START', '`pkmn battle me` - starts a new battle',
-       /pkmn battle (me)/, function (match, req, res) {
+       /pkmn (battle|fite) (me)/, function (match, req, res) {
         battleText.startBattle(req.body)
         .then(
           function(startObj){
@@ -90,7 +90,7 @@ module.exports = exports = (function () {
           }
         )
       }))
-      .addCommand(new Command('END', '`pkmn end battle` - stops the current battle', 
+      .addCommand(new Command('END', '`pkmn end battle` - stops the current battle',
         /pkmn end battle/, function (match, req, res) {
         battleText.endBattle(req.body)
         .then(
@@ -103,7 +103,7 @@ module.exports = exports = (function () {
           }
         )
       }))
-      .addCommand(new Command('HELP', '`pkmn help` - shows the available commands', 
+      .addCommand(new Command('HELP', '`pkmn help` - shows the available commands',
         /pkmn (help)/, function (match, req, res) {
             var text = 'Available Commands:\n' +
             _commands.map(function (c) {
@@ -111,11 +111,11 @@ module.exports = exports = (function () {
             }).filter(function (t) {
                 return t !== null;
             }).join('\n');
-            
+
             res.send(buildResponse(text));
         }
       ))
-      .addCommand(new Command('DEFAULT', null, 
+      .addCommand(new Command('DEFAULT', null,
         /pkmn (.*)/, function (match, req, res) {
         battleText.unrecognizedCommand(match[1])
         .then(function(text){
