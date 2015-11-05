@@ -171,50 +171,64 @@ module.exports.endBattle = function(slackData) {
 ////////////////////////////////
 
 var addPokemon = function(playerName, trainerName, pokemon) {
-  var pkmndata;
+  var pkmnData;
 
   var getPokemonData = function(poke) {
     return pokeapi.getPokemon(poke)
   },
 
-  choosePokemon = function(_pkmndata) {
-    pkmndata = _pkmndata;
-    return stateMachine.choosePokemon(playerName, trainerName, pkmndata);
+  choosePokemon = function(_pkmnData) {
+    pkmnData = _pkmnData;
+    return stateMachine.choosePokemon(playerName, trainerName, pkmnData);
   },
 
   getMoveSet = function() {
-    var moveString = '';
-    var movePromises = [];
-    var moves = shuffle(pkmndata.moves);
-
-    for(var i = 0; i < 4; i++) {
-      movePromises.push(
-        pokeapi.getMove("http://pokeapi.co"+moves[i].resource_uri)
-        .then(function(data){
-          stateMachine.addMove(data, playerName, trainerName, pkmndata.name);
-        })
-      )
-      //format: "vine whip, leer, solar beam, and tackle."
-      if(i < 3) {
-        moveString += moves[i].name;
-        moveString += ", ";
-      } else {
-        moveString += "and ";
-        moveString += moves[i].name;
-        moveString += ".";
-      }
-    }
-
-    pkmndata.moveString = moveString;
-    return Q.allSettled( movePromises )
-    .then( function() {
-      return pkmndata;
+    return getRandomMoveSet(pkmnData.moves, playerName, trainerName, pkmnData.name)
+    .then(function(moveString) {
+      pkmnData.moveString = moveString;
+      return pkmnData;
     });
   };
 
   return getPokemonData(pokemon)
   .then( choosePokemon )
   .then( getMoveSet )
+};
+
+function _getMoveFromPokeApi(moveList, i, totalMoves, maxMoves, playerName, initPlayerName, pokemonName) {
+  if (i >= moveList.length) {
+    return totalMoves.join(', ') + '.';
+  }
+
+  return pokeapi.getMove("http://pokeapi.co" + moveList[i].resource_uri)
+    .then(function (data) {
+      var pchain = Q();
+
+      if (data.power == 0) {
+        //console.log('Filtered out move: ', data);
+        // Filter out moves that do no damage right now.
+        // TODO: add back in later when effects are calculated
+      } else {
+        //console.log('adding move: ', data.name, 'power: ', data.power);
+        pchain.then(stateMachine.addMove(data, playerName, initPlayerName, pokemonName));
+        totalMoves.push(moveList[i].name);
+      }
+
+      if (totalMoves.length < maxMoves) {
+        return pchain.then(function () {
+          return _getMoveFromPokeApi(moveList, i + 1, totalMoves, maxMoves, playerName, initPlayerName, pokemonName)
+        });
+      } else {
+        return pchain.then(function () { return totalMoves.join(', ') + '.'; });
+      }
+    });
+}
+
+function getRandomMoveSet(moveList, playerName, initPlayerName, pokemonName) {
+  var textString = '';
+  var moves = shuffle(moveList);
+
+  return _getMoveFromPokeApi(moves, 0, [], 4, playerName, initPlayerName, pokemonName);
 }
 
 var effectivenessMessage = function(mult) {
@@ -242,8 +256,8 @@ var effectivenessMessage = function(mult) {
 /*
  */
 var useMove = function(moveName, playerName, trainerName, otherName, isOpponentMove) {
-  var textString = "{txtPrep1} used {mvname}! {crit} {effctv}";
-  var textStringDmg = "It did {dmg} damage, leaving {txtPrep2} with {hp}HP!";
+  var textString = ">{txtPrep1} used `{mvname}`! {crit} {effctv}";
+  var textStringDmg = "It did `{dmg}` damage, leaving {txtPrep2} with `{hp}`HP!";
 
   var getMoves = function() {
     return stateMachine.getActivePokemonAllowedMoves(playerName, trainerName);
