@@ -6,12 +6,14 @@ var moves = require('./file-system.js'),
 * feel free to remove this part and just use
 * redis = require("redis").createClient();
 */
-var redis;
-if(process.env.REDISTOGO_URL) {
-  var rtg   = require("url").parse(process.env.REDISTOGO_URL);
+var redis, redisUrl = process.env.REDISTOGO_URL || process.env.REDIS_URL;
+if(redisUrl) {
+  var rtg   = require("url").parse(redisUrl);
   redis = require("redis").createClient(rtg.port, rtg.hostname);
 
-  redis.auth(rtg.auth.split(":")[1]);
+  if (rtg.auth) {
+    redis.auth(rtg.auth.split(":")[1]);
+  }
 } else {
   //then we're running locally
   redis = require("redis").createClient();
