@@ -33,7 +33,7 @@ module.exports = {};
 module.exports.newBattle = function(playerName, channel) {
   var tryStartGame = function(exists) {
     if(!exists) {
-      getGameObj(playerName).then( createNewGame );
+      return getGameObj(playerName).then( createNewGame );
     } else {
       throw new Error("Battle exists");
     }
@@ -42,92 +42,27 @@ module.exports.newBattle = function(playerName, channel) {
   var createNewGame = function(game) {
     game.id = playerName;
     game.channel = channel;
-    return saveGame(playerName, game);
+    return game;
   };
 
-  return QRedis.exists(playerName).then( tryStartGame );
+  return QRedis.exists(playerName)
+  .then( tryStartGame );
 }
 
 module.exports.getBattle = function(playerName) {
   return getGameObj(playerName);
 }
 
+module.exports.saveGame = function(game) {
+  return saveGame( game );
+}
+
 module.exports.endBattle = function(playerName) {
   return QRedis.del( playerName )
 }
 
-module.exports.choosePokemon = function(playerName, trainerName, pokemonData) {
-  var choosePokemon = function(game) {
-    game.choosePokemon(trainerName, pokemonData);
-    return saveGame(playerName, game);
-  };
-
-  return getGameObj( playerName )
-  .then( choosePokemon );
-}
-
-module.exports.chooseNextPokemon = function(playerName, trainerName) {
-  var nextPokemon;
-  var chooseNextPokemon = function(game) {
-     nextPokemon = game.chooseNextPokemon(trainerName)
-     return saveGame(playerName, game);
-  };
-
-  return getGameObj( playerName )
-  .then( chooseNextPokemon )
-  .then(function() { return nextPokemon; })
-}
-
-module.exports.addMove = function(data, playerName, trainerName, pokemonName) {
-  var moveName = data.name.toLowerCase();
-
-  var allowMove = function(game) {
-    game.addAllowedMove( trainerName, pokemonName, moveName );
-    return saveGame(playerName, game);
-  };
-
-  cacheMove(moveName, data);
-
-  return getGameObj( playerName )
-  .then( allowMove );
-}
-
-module.exports.getActivePokemon = function(playerName, trainerName) {
-  var getActivePokemon = function(game) {
-    return game.getActivePokemon( trainerName );
-  };
-
-  return getGameObj( playerName )
-  .then( getActivePokemon );
-}
-
-module.exports.getActivePokemonTypes = function(playerName, trainerName) {
-  var getActivePokemonTypes = function(game) {
-    return game.getActivePokemonTypes( trainerName );
-  };
-
-  return getGameObj( playerName )
-  .then( getActivePokemonTypes );
-}
-
-module.exports.getActivePokemonAllowedMoves = function(playerName, trainerName) {
-  var getActivePokemonAllowedMoves = function(game) {
-    return game.getActivePokemonAllowedMoves( trainerName );
-  };
-
-  return getGameObj( playerName )
-  .then( getActivePokemonAllowedMoves );
-}
-
-module.exports.doDamageToActivePokemon = function(playerName, attackedPlayer, damage) {
-  var doDamage = function(game) {
-    hp = game.damageActivePokemon( attackedPlayer, damage );
-    saveGame(playerName, game);
-    return hp;
-  };
-
-  return getGameObj( playerName )
-  .then( doDamage );
+module.exports.cacheMove = function(moveName, data) {
+  return cacheMove(moveName, data);
 }
 
 module.exports.getSingleMove = function(moveName) {
@@ -140,7 +75,11 @@ module.exports.getSingleMove = function(moveName) {
 /////////////////////////////////////////
 
 function getGameObj(playerName) {
-  var formGameObject = function(json) {
+  var _getGame = function() {
+    return QRedis.get(playerName);
+  },
+
+  formGameObject = function(json) {
     var game = Game.fromName(playerName);
     if(json) {
       game = Game.fromJSON(JSON.parse(json));
@@ -149,11 +88,12 @@ function getGameObj(playerName) {
     return game;
   };
 
-  return QRedis.get(playerName).then( formGameObject )
+  return  _getGame()
+  .then( formGameObject );
 }
 
-function saveGame(playerName, game) {
-  return QRedis.set(playerName, JSON.stringify(game))
+function saveGame(game) {
+  return QRedis.set(game.gameId, JSON.stringify(game))
 };
 
 function cacheMove(name, data){

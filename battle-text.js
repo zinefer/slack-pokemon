@@ -12,9 +12,13 @@ module.exports = {}
  */
 module.exports.startBattle = function(slackData) {
   var textString = "OK {name}, I'll battle you! ".replace("{name}", slackData.user_name);
+  var pokeChoice;
+  var game;
+  var dex_nos = [];
 
-  var getNpcDexNumbers = function() {
-    var dex_nos = [];
+  var getNpcDexNumbers = function(_game) {
+    game = _game;
+
     var morePokeOdds = .3;
 
     do {
@@ -27,19 +31,25 @@ module.exports.startBattle = function(slackData) {
     return dex_nos;
   },
 
-  chooseNpcPokemon = function(dex_nos) {
-    return module.exports.choosePokemon(slackData.user_name, 'npc', dex_nos);
+  createNpcTrainer = function() {
+    return game.createNpcTrainer();
   },
 
-  createNpcAnnouncement = function(pkmnChoice){
+  chooseNpcPokemon = function(trainer) {
+    return module.exports.choosePokemon(game, trainer, dex_nos)
+    .then( function( pkmnChoice ) { pokeChoice = pkmnChoice; } );
+  },
+
+  createNpcAnnouncement = function(){
     return {
-      text: textString + '\n' + pkmnChoice.text,
-      spriteUrl: pkmnChoice.spriteUrl
+      text: textString + '\n' + pokeChoice.text,
+      spriteUrl: pokeChoice.spriteUrl
     }
   };
 
   return stateMachine.newBattle(slackData.user_name, slackData.channel_name)
   .then( getNpcDexNumbers )
+  .then( createNpcTrainer )
   .then( chooseNpcPokemon )
   .then( createNpcAnnouncement )
 }
@@ -49,40 +59,72 @@ module.exports.startBattle = function(slackData) {
  * Fetch the pokemon from the API, choose 4 random moves, write them to REDIS,
  * and then return a message stating the pokemon, its HP, and its moves.
  */
-module.exports.choosePokemon = function(playerName, trainerName, pokemon) {
-  var addAllPokemon = function(pokemon) {
+module.exports.choosePokemon = function(_game, _trainer, pokemon) {
+  var game;
+  var pokeData;
+  var trainer;
+
+  var getGame = function() {
+    if( typeof _game === 'object' ) {
+      game = _game;
+      return game;
+    } else {
+      return stateMachine.getBattle( _game )
+      .then( function( _gameObj ) { game = _gameObj; } )
+    }
+  },
+
+  getTrainer = function() {
+    if( typeof _trainer === 'object' ) {
+      trainer = _trainer;
+      return trainer;
+    } else {
+      trainer = game.getPlayerByName( _trainer );
+    }
+  },
+
+  addAllPokemon = function() {
     var addPromises = [];
     for(var i = pokemon.length - 1; i > 0; i--) {
-      addPromises.push(addPokemon(playerName, trainerName, pokemon[i]));
+      addPromises.push(addPokemon(game, trainer, pokemon[i]));
     }
 
     var addActivePokemon = function() {
-      return addPokemon(playerName, trainerName, pokemon[0]);
+      return addPokemon(game, trainer, pokemon[0]);
     }
 
     return Q.all( addPromises )
     .then( addActivePokemon )
+    .then( function (pkmnData) { pokeData = pkmnData; } )
   },
 
-  setTextString = function(pkmndata){
-    var displayName = (trainerName === 'npc') ? 'I choose' : trainerName + ' chooses';
+  setTextString = function(){
+    var displayName = (trainer.isNpc) ? 'I choose' : trainer.name + ' chooses';
     var textString = "{chooseMessage} {pkmnn}. It has {hp} HP, and knows {moves}";
 
     textString = textString.replace("{chooseMessage}", displayName);
-    textString = textString.replace("{pkmnn}", pkmndata.name);
-    textString = textString.replace("{hp}", pkmndata.hp);
-    textString = textString.replace("{moves}", pkmndata.moveString);
+    textString = textString.replace("{pkmnn}", pokeData.name);
+    textString = textString.replace("{hp}", pokeData.hp);
+    textString = textString.replace("{moves}", pokeData.moveString);
 
-    var spriteUrl = getSpriteUrl(pkmndata.pkdx_id);
+    var spriteUrl = getSpriteUrl(pokeData.pkdx_id);
 
     return {
       text: textString,
       spriteUrl: spriteUrl
     }
+  }
+
+  saveGame = function() {
+    return stateMachine.saveGame( game )
   };
 
-  return addAllPokemon( pokemon )
-  .then( setTextString );
+
+  return Q.fcall( getGame )
+  .then( getTrainer )
+  .then( addAllPokemon )
+  .then( saveGame )
+  .then( setTextString )
 }
 
 /*
@@ -92,39 +134,26 @@ module.exports.choosePokemon = function(playerName, trainerName, pokemon) {
  */
 module.exports.doTurn = function(moveName, slackData) {
   var results = [];
-  var doNpcMove = function() {
-    return useMove(null, slackData.user_name, 'npc', slackData.user_name, true)
+  var game;
+
+  var getGame = function() {
+    return stateMachine.getBattle( slackData.user_name )
+    .then(function( _game ) { game = _game; });
   },
 
-  doUserMove = function() {
-    return useMove(moveName, slackData.user_name, slackData.user_name, 'npc', false)
+  _decideMoves = function() {
+    return decideMoves( game, moveName, results );
   },
 
-  saveResult = function(result) {
-    results.push(result)
-    return result;
-  },
-
-  checkForFaint = function(result) {
-    if (result.fainted) {
-      return stateMachine.chooseNextPokemon(slackData.user_name, result.fainted.trainerName)
-      .then(function(nextPoke) {
-        if(nextPoke){
-          result.text += '\n' + result.fainted.pokeName + ' fainted! \n';
-          result.text += 'I choose '+ nextPoke.name +'! \n';
-          result.text += getSpriteUrl(nextPoke.dex_no);
-        } else {
-          result.loser = result.fainted.trainerName;
-        }
-      });
-    }
+  saveGame = function() {
+    return stateMachine.saveGame( game );
   },
 
   checkForVictor = function () {
     if (results[0].loser || results[1].loser) {
       return stateMachine.endBattle(slackData.user_name)
     }
-  }
+  },
 
   printResults = function(){
     var dmgText = results[0].text + "\n" + results[1].text;
@@ -139,15 +168,10 @@ module.exports.doTurn = function(moveName, slackData) {
     }
   };
 
-  //TODO: Choose who goes first based on speed
   //TODO: Validate Move
-  //TODO: Move save game state into it's own function
-  return doNpcMove()
-  .then( saveResult )
-  .then( checkForFaint )
-  .then( doUserMove )
-  .then( saveResult )
-  .then( checkForFaint )
+  return getGame()
+  .then( _decideMoves )
+  .then( saveGame )
   .then( checkForVictor )
   .then( printResults )
 }
@@ -170,16 +194,94 @@ module.exports.endBattle = function(slackData) {
 //        Private Methods     //
 ////////////////////////////////
 
-var addPokemon = function(playerName, trainerName, pokemon) {
-  var pkmnData;
+var decideMoves = function(game, moveName, results) {
+  var faster;
+  var slower;
+
+  function prepMove(user) {
+    //This works for now. Will need to be updated to support pvp
+    var move = {
+      'name': '',
+      'isOpponent': false
+    };
+
+    if (user.isNpc) {
+      move.name = null;
+      move.isOpponent = true;
+    } else {
+      move.name = moveName;
+      move.isOpponent = false;
+    };
+
+    return move;
+  };
+
+  var findFaster = function() {
+    var poke1 = game.player1.getActivePokemon().speed;
+    var poke2 = game.player2.getActivePokemon().speed;
+
+    if(poke1 > poke2) {
+      faster = game.player1;
+      slower = game.player2;
+    } else {
+      faster = game.player2;
+      slower = game.player1;
+    }
+  },
+
+  doFasterMove = function() {
+    var move = prepMove(faster);
+    return useMove(move.name, game, faster.name, slower.name, move.isOpponent)
+  },
+
+  doSlowerMove = function() {
+    var move = prepMove(slower);
+    return useMove(move.name, game, slower.name, faster.name, move.isOpponent)
+  },
+
+  saveResult = function(result) {
+    results.push(result)
+    return result;
+  },
+
+  checkForFaint = function(result) {
+    if (result.fainted) {
+      return game.chooseNextPokemon( result.fainted.trainerName )
+      .then(function(nextPoke) {
+        if(nextPoke){
+          result.text += '\n' + result.fainted.pokeName + ' fainted! \n';
+          result.text += 'I choose '+ nextPoke.name +'! \n';
+          result.text += getSpriteUrl(nextPoke.dex_no);
+        } else {
+          result.loser = result.fainted.trainerName;
+        }
+      });
+    }
+  };
+
+  return Q.fcall( findFaster )
+  .then( doFasterMove )
+  .then( saveResult )
+  .then( checkForFaint )
+  .then( doSlowerMove )
+  .then( saveResult )
+  .then( checkForFaint )
+};
+
+var saveGame = function(game) {
+  return stateMachine.saveGame( game );
+};
+
+var addPokemon = function(game, trainer, pokemon) {
+  var pkmndata;
 
   var getPokemonData = function(poke) {
     return pokeapi.getPokemon(poke)
   },
 
-  choosePokemon = function(_pkmnData) {
-    pkmnData = _pkmnData;
-    return stateMachine.choosePokemon(playerName, trainerName, pkmnData);
+  choosePokemon = function(_pkmndata) {
+    pkmndata = _pkmndata;
+    return game.choosePokemon(trainer.name, pkmndata);
   },
 
   getMoveSet = function() {
@@ -188,7 +290,6 @@ var addPokemon = function(playerName, trainerName, pokemon) {
       pkmnData.moveString = moveString;
       return pkmnData;
     });
-  };
 
   return getPokemonData(pokemon)
   .then( choosePokemon )
@@ -255,12 +356,12 @@ var effectivenessMessage = function(mult) {
 
 /*
  */
-var useMove = function(moveName, playerName, trainerName, otherName, isOpponentMove) {
-  var textString = ">{txtPrep1} used `{mvname}`! {crit} {effctv}";
-  var textStringDmg = "It did `{dmg}` damage, leaving {txtPrep2} with `{hp}`HP!";
+var useMove = function(moveName, game, trainerName, otherName, isOpponentMove) {
+  var textString = "{txtPrep1} used {mvname}! {crit} {effctv}";
+  var textStringDmg = "It did {dmg} damage, leaving {txtPrep2} with {hp}HP!";
 
   var getMoves = function() {
-    return stateMachine.getActivePokemonAllowedMoves(playerName, trainerName);
+    return game.getActivePokemonAllowedMoves( trainerName );
   },
 
   getMove = function(moves){
@@ -283,7 +384,7 @@ var useMove = function(moveName, playerName, trainerName, otherName, isOpponentM
 
   _doDamage = function(moveData) {
     moveData.name = moveName;
-    return doDamage(moveData, playerName, trainerName, otherName);
+    return doDamage(moveData, game, trainerName, otherName);
   },
 
   formOutcomeText = function(results){
@@ -318,13 +419,13 @@ var useMove = function(moveName, playerName, trainerName, otherName, isOpponentM
     }
   }
 
-  return getMoves()
+  return Q.fcall( getMoves )
   .then( getMove )
   .then( _doDamage )
   .then( formOutcomeText )
 }
 
-var doDamage = function(moveData, playerName, trainerName, otherName) {
+var doDamage = function(moveData, game, trainerName, otherName) {
   var multiplier;
   var damage;
   var attackingPokemon;
@@ -333,7 +434,7 @@ var doDamage = function(moveData, playerName, trainerName, otherName) {
   var damageType;
 
   var getPokemonType = function() {
-    return stateMachine.getActivePokemonTypes(playerName, otherName)
+    return game.getActivePokemonTypes( otherName )
   },
 
   getTypeMultiplier = function(types) {
@@ -342,12 +443,12 @@ var doDamage = function(moveData, playerName, trainerName, otherName) {
   },
 
   getAttackingPokemon = function() {
-    return stateMachine.getActivePokemon(playerName, trainerName)
+    return game.getActivePokemon( trainerName )
     .then( function(_atkPokemon) { attackingPokemon = _atkPokemon; } )
   },
 
   getDefendingPokemon = function() {
-    return stateMachine.getActivePokemon(playerName, otherName)
+    return game.getActivePokemon( otherName )
     .then( function(_defPokemon) { defendingPokemon = _defPokemon; } )
   },
 
@@ -401,7 +502,7 @@ var doDamage = function(moveData, playerName, trainerName, otherName) {
 
   _doDamage = function(_damage){
     damage = _damage;
-    return stateMachine.doDamageToActivePokemon(playerName, otherName, damage)
+    return game.damageActivePokemon( otherName, damage )
   },
 
   reportResults = function(hpRemaining) {
@@ -414,7 +515,7 @@ var doDamage = function(moveData, playerName, trainerName, otherName) {
     return results;
   };
 
-  return getPokemonType()
+  return Q.fcall( getPokemonType )
   .then( getTypeMultiplier )
   .then( getAttackingPokemon )
   .then( getDefendingPokemon )

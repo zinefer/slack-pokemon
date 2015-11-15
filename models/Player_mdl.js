@@ -1,7 +1,8 @@
 var Pokemon = require('./Pokemon_mdl.js');
 
-var Player = function(name, pokemon) {
+var Player = function(isNpc, name, pokemon) {
   this.name = name || null;
+  this.isNpc = isNpc || false;
   this.pokemon = pokemon || [];
 
   this.getPokemonByName = function(pokemonName) {
@@ -82,8 +83,8 @@ var Player = function(name, pokemon) {
 Player.prototype = new Player();
 Player.prototype.constructor = Player;
 
-module.exports.fromName = function(name) {
-  return new Player(name);
+module.exports.fromNameAndType = function(type, name) {
+  return new Player(type, name);
 };
 
 module.exports.fromJSON = function(json) {
@@ -96,5 +97,5 @@ module.exports.fromJSON = function(json) {
     pokemonList.push(Pokemon.fromJSON(poke));
   });
 
-  return new Player(json.name, pokemonList);
+  return new Player(json.isNpc, json.name, pokemonList);
 };

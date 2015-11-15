@@ -1,59 +1,65 @@
 var Player = require('./Player_mdl.js');
+var Q = require('q');
 
 var Game = function(gameId, player1, player2, channel) {
-  this.gameId = gameId || null;
-  this.player1 = player1 || null;
-  this.player2 = player2 || null;
-  this.channel = channel || null;
+  self = this;
+  self.gameId = gameId || null;
+  self.player1 = player1 || null;
+  self.player2 = player2 || null;
+  self.channel = channel || null;
 
-  this.addPlayer = function(playerName) {
-    if(this.player1 == null) {
-      this.player1 = Player.fromName(playerName);
-      return this.player1;
-    } else if (this.player2 == null) {
-      this.player2 = Player.fromName(playerName);
-      return this.player2;
+  self.addPlayer = function(type, playerName) {
+    if(self.player1 == null) {
+      self.player1 = Player.fromNameAndType(type, playerName);
+      return self.player1;
+    } else if (self.player2 == null) {
+      self.player2 = Player.fromNameAndType(type, playerName);
+      return self.player2;
     } else {
       throw new Error('Can\'t add player. Game is full.');
     }
   };
 
-  this.getPlayerByName = function(playerName) {
-    if(this.player1 != null && this.player1.name == playerName){
-      return this.player1;
-    } else if(this.player2 != null && this.player2.name == playerName) {
-      return this.player2;
+  self.getPlayerByName = function(playerName) {
+    if(self.player1 != null && self.player1.name == playerName){
+      return self.player1;
+    } else if(self.player2 != null && self.player2.name == playerName) {
+      return self.player2;
     } else {
-      return this.addPlayer(playerName);
+      return self.addPlayer(false, playerName);
     }
   };
 
-  this.choosePokemon = function(playerName, pokemonData) {
-    this.getPlayerByName(playerName).choosePokemon(pokemonData);
+  self.createNpcTrainer = function() {
+    return self.addPlayer(true, 'npc');
   };
 
-  this.chooseNextPokemon = function(playerName) {
-    return this.getPlayerByName(playerName).chooseNextPokemon();
+  self.choosePokemon = function(playerName, pokemonData) {
+     return Q.fcall (function() { return self.getPlayerByName(playerName).choosePokemon(pokemonData); });
   };
 
-  this.addAllowedMove = function(playerName, pokemonName, move) {
-    this.getPlayerByName(playerName).addAllowedMove(pokemonName, move);
+  self.chooseNextPokemon = function(playerName) {
+    return Q.fcall (function() { return self.getPlayerByName(playerName).chooseNextPokemon(); });
   };
 
-  this.getActivePokemon = function(playerName) {
-    return this.getPlayerByName(playerName).getActivePokemon();
+  self.addAllowedMove = function(playerName, pokemonName, move) {
+     return Q.fcall (function() { return self.getPlayerByName(playerName).addAllowedMove(pokemonName, move); });
+  };
+
+  self.getActivePokemon = function(playerName) {
+    return Q.fcall(function() { return self.getPlayerByName(playerName).getActivePokemon() });
   }
 
-  this.getActivePokemonTypes = function(playerName) {
-    return this.getPlayerByName(playerName).getActivePokemonTypes();
+  self.getActivePokemonTypes = function(playerName) {
+    return Q.fcall(function() { return self.getPlayerByName(playerName).getActivePokemonTypes() });
   };
 
-  this.getActivePokemonAllowedMoves = function(playerName){
-    return this.getPlayerByName(playerName).getActivePokemonAllowedMoves();
+  self.getActivePokemonAllowedMoves = function(playerName){
+    return Q.fcall(function() {  return self.getPlayerByName(playerName).getActivePokemonAllowedMoves() });
   };
 
-  this.damageActivePokemon = function(playerName, damage) {
-    return this.getPlayerByName(playerName).damageActivePokemon(damage);
+  self.damageActivePokemon = function(playerName, damage) {
+    return Q.fcall(function() { return self.getPlayerByName(playerName).damageActivePokemon(damage); });
   };
 };
 
