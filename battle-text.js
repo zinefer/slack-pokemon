@@ -14,11 +14,11 @@ module.exports.startBattle = function(slackData) {
   var textString = "OK {name}, I'll battle you! ".replace("{name}", slackData.user_name);
   var pokeChoice;
   var game;
+  var dex_nos = [];
 
   var getNpcDexNumbers = function(_game) {
     game = _game;
 
-    var dex_nos = [];
     var morePokeOdds = .3;
 
     do {
@@ -31,8 +31,12 @@ module.exports.startBattle = function(slackData) {
     return dex_nos;
   },
 
-  chooseNpcPokemon = function(dex_nos) {
-    return module.exports.choosePokemon(game.gameId, 'npc', dex_nos)
+  createNpcTrainer = function() {
+    return game.createNpcTrainer();
+  },
+
+  chooseNpcPokemon = function(trainer) {
+    return module.exports.choosePokemon(game, trainer, dex_nos)
     .then( function( pkmnChoice ) { pokeChoice = pkmnChoice; } );
   },
 
@@ -45,6 +49,7 @@ module.exports.startBattle = function(slackData) {
 
   return stateMachine.newBattle(slackData.user_name, slackData.channel_name)
   .then( getNpcDexNumbers )
+  .then( createNpcTrainer )
   .then( chooseNpcPokemon )
   .then( createNpcAnnouncement )
 }
@@ -54,38 +59,47 @@ module.exports.startBattle = function(slackData) {
  * Fetch the pokemon from the API, choose 4 random moves, write them to REDIS,
  * and then return a message stating the pokemon, its HP, and its moves.
  */
-module.exports.choosePokemon = function(_game, trainerName, pokemon) {
+module.exports.choosePokemon = function(_game, _trainer, pokemon) {
   var game;
-
   var pokeData;
+  var trainer;
 
   var getGame = function() {
-    if( typeof _game === Object ) {
+    if( typeof _game === 'object' ) {
       game = _game;
       return game;
     } else {
       return stateMachine.getBattle( _game )
-      .then( function( _gameObj ) { game = _gameObj; } );
+      .then( function( _gameObj ) { game = _gameObj; } )
+    }
+  },
+
+  getTrainer = function() {
+    if( typeof _trainer === 'object' ) {
+      trainer = _trainer;
+      return trainer;
+    } else {
+      trainer = game.getPlayerByName( _trainer );
     }
   },
 
   addAllPokemon = function() {
     var addPromises = [];
     for(var i = pokemon.length - 1; i > 0; i--) {
-      addPromises.push(addPokemon(game, trainerName, pokemon[i]));
+      addPromises.push(addPokemon(game, trainer, pokemon[i]));
     }
 
     var addActivePokemon = function() {
-      return addPokemon(game, trainerName, pokemon[0]);
+      return addPokemon(game, trainer, pokemon[0]);
     }
 
     return Q.all( addPromises )
     .then( addActivePokemon )
-    .then( function (pkmnData) { pokeData = pkmnData; } );
+    .then( function (pkmnData) { pokeData = pkmnData; } )
   },
 
   setTextString = function(){
-    var displayName = (trainerName === 'npc') ? 'I choose' : trainerName + ' chooses';
+    var displayName = (trainer.isNpc) ? 'I choose' : trainer.name + ' chooses';
     var textString = "{chooseMessage} {pkmnn}. It has {hp} HP, and knows {moves}";
 
     textString = textString.replace("{chooseMessage}", displayName);
@@ -105,10 +119,12 @@ module.exports.choosePokemon = function(_game, trainerName, pokemon) {
     return stateMachine.saveGame( game )
   };
 
-  return getGame()
+
+  return Q.fcall( getGame )
+  .then( getTrainer )
   .then( addAllPokemon )
   .then( saveGame )
-  .then( setTextString );
+  .then( setTextString )
 }
 
 /*
@@ -152,9 +168,7 @@ module.exports.doTurn = function(moveName, slackData) {
     }
   };
 
-  //TODO: Choose who goes first based on speed
   //TODO: Validate Move
-  //TODO: Move save game state into it's own function
   return getGame()
   .then( _decideMoves )
   .then( saveGame )
@@ -184,18 +198,45 @@ var decideMoves = function(game, moveName, results) {
   var faster;
   var slower;
 
+  function prepMove(user) {
+    //This works for now. Will need to be updated to support pvp
+    var move = {
+      'name': '',
+      'isOpponent': false
+    };
+
+    if (user.isNpc) {
+      move.name = null;
+      move.isOpponent = true;
+    } else {
+      move.name = moveName;
+      move.isOpponent = false;
+    };
+
+    return move;
+  };
+
   var findFaster = function() {
-    //TODO: Actually use speed stat here
-    faster = game.player1.name;
-    slower = game.player2.name;
+    var poke1 = game.player1.getActivePokemon().speed;
+    var poke2 = game.player2.getActivePokemon().speed;
+
+    if(poke1 > poke2) {
+      faster = game.player1;
+      slower = game.player2;
+    } else {
+      faster = game.player2;
+      slower = game.player1;
+    }
   },
 
   doFasterMove = function() {
-    return useMove(null, game, faster, slower, true)
+    var move = prepMove(faster);
+    return useMove(move.name, game, faster.name, slower.name, move.isOpponent)
   },
 
   doSlowerMove = function() {
-    return useMove(moveName, game, slower, faster, false)
+    var move = prepMove(slower);
+    return useMove(move.name, game, slower.name, faster.name, move.isOpponent)
   },
 
   saveResult = function(result) {
@@ -231,7 +272,7 @@ var saveGame = function(game) {
   return stateMachine.saveGame( game );
 };
 
-var addPokemon = function(game, trainerName, pokemon) {
+var addPokemon = function(game, trainer, pokemon) {
   var pkmndata;
 
   var getPokemonData = function(poke) {
@@ -240,7 +281,7 @@ var addPokemon = function(game, trainerName, pokemon) {
 
   choosePokemon = function(_pkmndata) {
     pkmndata = _pkmndata;
-    return game.choosePokemon(trainerName, pkmndata);
+    return game.choosePokemon(trainer.name, pkmndata);
   },
 
   getMoveSet = function() {
@@ -253,7 +294,7 @@ var addPokemon = function(game, trainerName, pokemon) {
         pokeapi.getMove("http://pokeapi.co"+moves[i].resource_uri)
         .then(function(data){
           stateMachine.cacheMove( data.name.toLowerCase(), data )
-          return game.addAllowedMove( trainerName, pkmndata.name, data.name.toLowerCase() );
+          return game.addAllowedMove( trainer.name, pkmndata.name, data.name.toLowerCase() );
         })
       )
       //format: "vine whip, leer, solar beam, and tackle."

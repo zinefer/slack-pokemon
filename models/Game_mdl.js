@@ -8,12 +8,12 @@ var Game = function(gameId, player1, player2, channel) {
   self.player2 = player2 || null;
   self.channel = channel || null;
 
-  self.addPlayer = function(playerName) {
+  self.addPlayer = function(type, playerName) {
     if(self.player1 == null) {
-      self.player1 = Player.fromName(playerName);
+      self.player1 = Player.fromNameAndType(type, playerName);
       return self.player1;
     } else if (self.player2 == null) {
-      self.player2 = Player.fromName(playerName);
+      self.player2 = Player.fromNameAndType(type, playerName);
       return self.player2;
     } else {
       throw new Error('Can\'t add player. Game is full.');
@@ -26,8 +26,12 @@ var Game = function(gameId, player1, player2, channel) {
     } else if(self.player2 != null && self.player2.name == playerName) {
       return self.player2;
     } else {
-      return self.addPlayer(playerName);
+      return self.addPlayer(false, playerName);
     }
+  };
+
+  self.createNpcTrainer = function() {
+    return self.addPlayer(true, 'npc');
   };
 
   self.choosePokemon = function(playerName, pokemonData) {
