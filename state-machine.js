@@ -61,14 +61,6 @@ module.exports.endBattle = function(playerName) {
   return QRedis.del( playerName )
 }
 
-module.exports.cacheMove = function(moveName, data) {
-  return cacheMove(moveName, data);
-}
-
-module.exports.getSingleMove = function(moveName) {
-  return QRedis.hgetall("move:"+moveName.toLowerCase());
-}
-
 
 /////////////////////////////////////////
 //       Private Methods            /////
