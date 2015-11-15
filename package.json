@@ -25,8 +25,10 @@
     "heroku",
     "express"
   ],
-  "author": "Mark Pundsack",
+  "author": "Klint Thrasher",
   "contributors": [
+    "Kevin Ruffin",
+    "Mark Pundsack",
     "Zeke Sikelianos <zeke@sikelianos.com> (http://zeke.sikelianos.com)"
   ],
   "license": "MIT",

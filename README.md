@@ -1,6 +1,8 @@
 # Slack-Pokemon
 
-This is a bot for having Pokemon battles within [Slack](https://slack.com/). It was originally built at Vox Media's product hackathon, [Vax](http://product.voxmedia.com/2014/7/3/5861220/vax-14-the-things-we-built). Read more about it [here](http://www.polygon.com/2014/6/27/5850720/pokemon-battle-slack-vox).
+This is a bot for having Pokemon battles within [Slack](https://slack.com/). 
+
+This is a fork from the original project by [@RobertVinluan](http://twitter.com/robertvinluan). It was originally built at Vox Media's product hackathon, [Vax](http://product.voxmedia.com/2014/7/3/5861220/vax-14-the-things-we-built). Read more about it [here](http://www.polygon.com/2014/6/27/5850720/pokemon-battle-slack-vox).
 
 Here's an example battle:
 
@@ -70,25 +72,20 @@ List of commands:
 Currently the battle system is a tiny fraction of Pokemon's actual battle system. It supports:
 
 - one battle between a user and an NPC
-- one pokemon per player (of any currently existing pokemon from Bulbasaur to Zygarde. No Volcanion, Diancie, or Hoopa.)
+- up to 6 pokemon per player (of any currently existing pokemon from Bulbasaur to Zygarde. No Volcanion, Diancie, or Hoopa.)
 - moves with appropriate power and type effectiveness (moves can be Super Effective or Not Effective, etc.)
+- taking stats into account when calculating damage (including accuracy and critical hits)
+- multiple concurrent battles
 
 It currently does not support:
 
-- taking stats into account when calculating damage (including accuracy and critical hits)
 - levels, or stats based on levels (including EVs and IVs)
 - ANY non-damaging moves
 - secondary effects of damaging moves (status, buffs/debuffs, multi-hits)
 - items and abilities
-- multiple concurrent battles
 - player vs player battles
 
-###Developing New Features: PJScrape and Supplementary JSON
+###Data Feeds
 
-If you wish to develop new features for this, you will likely run into a situation in which PokeAPI's data isn't sufficient. This happened to me with move types. I ended up scraping the data with [PJScrape](http://nrabinowitz.github.io/pjscrape/) from an external website. The folder `supplemental_json` contains both the scraped data in JSON format as well as the config file passed to PJScrape in order to generate the data.
+The data is currently being pulled from pokeapi.com as well as some extra data that was scrapped and stored in local JSON files. These are being replaced by a local datastore.
 
-If you end up needing to scrape a page for supplemental data, please take a look at that folder.
-
-##Contact
-
-Feel free to message me on Twitter, [@RobertVinluan](http://twitter.com/robertvinluan). For now I'm making small updates but not adding features. If you would like to add a feature please submit a pull request. I promise I'll look at it (and probably approve it)!
