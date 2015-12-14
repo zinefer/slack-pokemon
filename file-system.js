@@ -1,4 +1,5 @@
-var fs = require('fs');
+var fs = require('fs'),
+    path = require('path');
 
 /*
 * This is a SYNCHRONOUS function to get the type of a move from an external file,
@@ -8,7 +9,7 @@ var fs = require('fs');
 */
 module.exports.getMoveType = function(moveName) {
   moveName = moveName.replace("-", " ");
-  var data = fs.readFileSync("./supplementary_json/move_types.json");
+  var data = fs.readFileSync(path.resolve(__dirname, './supplementary_json/move_types.json'));
   data = JSON.parse(data);
   data = data.filter(function(val, index, arr){
     return Object.keys(val)[0] == moveName;
@@ -24,7 +25,7 @@ module.exports.getMoveType = function(moveName) {
 
 module.exports.getDamageType = function(moveName) {
   moveName = moveName.replace("-", " ");
-  var data = fs.readFileSync("./supplementary_json/damage_types.json");
+  var data = fs.readFileSync(path.resolve(__dirname, './supplementary_json/damage_types.json'));
   data = JSON.parse(data);
   data = data.filter(function(val, index, arr){
     return Object.keys(val)[0] == moveName;
